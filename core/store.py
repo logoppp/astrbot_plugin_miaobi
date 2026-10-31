@@ -46,16 +46,19 @@ def _ensure_presets(providers: list[dict[str, Any]]) -> bool:
                     model["presets_seeded"] = True
                     changed = True
                 continue
-            # 预设库版本 2：NAI 与 Anima 的画师串拆开（artist: 前缀 vs 裸写）。
-            # 版本落后就一次性重播，之后不再动用户的修改。
+            # 预设库版本升级：**只补缺失的，不覆盖已有的**。
+            # 早期实现直接整份重播，把用户手调的画师串（NAI 权重串）冲掉了。
             if int(model.get("presets_version") or 0) < PRESETS_VERSION:
-                model["prompt_presets"] = normalize_presets(
-                    presets_for(
-                        model.get("model_id") or "",
-                        provider.get("protocol") or "",
-                        model.get("capabilities"),
-                    )
-                )
+                existing = list(model.get("prompt_presets") or [])
+                names = {str(item.get("name") or "") for item in existing}
+                for item in presets_for(
+                    model.get("model_id") or "",
+                    provider.get("protocol") or "",
+                    model.get("capabilities"),
+                ):
+                    if str(item.get("name") or "") not in names:
+                        existing.append(item)
+                model["prompt_presets"] = normalize_presets(existing)
                 model["presets_version"] = PRESETS_VERSION
                 model["presets_seeded"] = True
                 changed = True
