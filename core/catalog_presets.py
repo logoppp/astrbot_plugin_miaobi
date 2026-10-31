@@ -212,6 +212,17 @@ PRESETS: list[dict[str, Any]] = [
         ],
     },
     {
+        "id": "moss-image",
+        "name": "MOSS-Image",
+        "family": "moss",
+        "capabilities": [CAP_T2I, CAP_I2I],
+        "note": "中文长描述与画面内文字渲染是强项，常跑在 ComfyUI 或兼容接口上。",
+        "bindings": [
+            {"protocol": "comfyui_roundabout", "model_id": "moss-image-t2i"},
+            {"protocol": "openai_images", "model_id": "moss-image"},
+        ],
+    },
+    {
         "id": "nai-diffusion-4-5",
         "name": "NovelAI Diffusion V4.5",
         "family": "nai",

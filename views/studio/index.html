@@ -26,6 +26,14 @@
     --radius: 12px;
     --radius-sm: 8px;
     --ease: cubic-bezier(.4, 0, .2, 1);
+
+    /* 顶部 tab 轨道：彩色透明玻璃 */
+    --tab-rail: linear-gradient(135deg, rgba(51, 85, 255, .13), rgba(139, 92, 246, .13));
+    --tab-rail-border: rgba(51, 85, 255, .16);
+    --tab-text: #55607a;
+    --tab-hover: rgba(255, 255, 255, .55);
+    --tab-on: linear-gradient(135deg, #3b5bfd 0%, #6d5cf6 55%, #8b5cf6 100%);
+    --tab-glow: rgba(76, 94, 246, .5);
   }
   html[data-theme="dark"], body.dark {
     --bg: #0f1116;
@@ -44,6 +52,13 @@
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, .5);
     --shadow: 0 1px 3px rgba(0, 0, 0, .5), 0 14px 34px -18px rgba(0, 0, 0, .7);
     --shadow-lg: 0 24px 64px -24px rgba(0, 0, 0, .8);
+
+    --tab-rail: linear-gradient(135deg, rgba(125, 154, 255, .16), rgba(167, 139, 250, .16));
+    --tab-rail-border: rgba(125, 154, 255, .22);
+    --tab-text: #b9c2d4;
+    --tab-hover: rgba(255, 255, 255, .08);
+    --tab-on: linear-gradient(135deg, #5570ff 0%, #7c6cf8 55%, #a78bfa 100%);
+    --tab-glow: rgba(124, 108, 248, .6);
   }
   * { box-sizing: border-box; }
   html {
@@ -93,17 +108,27 @@
   .brand .sub { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
   .tabs {
     display: flex; gap: 2px; margin-left: auto;
-    padding: 3px; border-radius: 10px; background: var(--bg-subtle);
+    padding: 4px; border-radius: 12px;
+    background: var(--tab-rail);
+    border: 1px solid var(--tab-rail-border);
+    backdrop-filter: blur(10px) saturate(170%);
+    -webkit-backdrop-filter: blur(10px) saturate(170%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .5),
+      0 2px 12px -6px var(--tab-glow);
   }
   .tabs button {
-    border: 0; background: transparent; color: var(--muted);
-    padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
-    transition: background .18s var(--ease), color .18s var(--ease);
+    border: 0; background: transparent; color: var(--tab-text);
+    padding: 7px 16px; border-radius: 9px; font-size: 13px; font-weight: 500;
+    transition: background .2s var(--ease), color .2s var(--ease), box-shadow .2s var(--ease);
   }
-  .tabs button:hover { color: var(--text); }
+  .tabs button:hover { color: var(--text); background: var(--tab-hover); }
   .tabs button.on {
-    color: var(--accent); background: var(--card); box-shadow: var(--shadow-sm);
+    color: #fff;
+    background: var(--tab-on);
+    box-shadow: 0 4px 14px -6px var(--tab-glow), inset 0 1px 0 rgba(255, 255, 255, .22);
   }
+  .tabs button.on:hover { color: #fff; background: var(--tab-on); }
   .ghost {
     border: 1px solid var(--border); background: var(--card);
     padding: 7px 14px; border-radius: var(--radius-sm); font-size: 13px;
@@ -243,6 +268,40 @@
   }
   .card:hover { border-color: var(--border-strong); box-shadow: var(--shadow); }
   .card.off { opacity: .6; }
+
+  /* ---------- 配置页：顶部常驻操作条 + 两栏栅格 ---------- */
+  .settings-bar {
+    position: sticky; top: 66px; z-index: 15;
+    display: flex; align-items: center; gap: 12px;
+    margin: 0 0 16px; padding: 10px 16px;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--card) 86%, transparent);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    box-shadow: var(--shadow-sm);
+  }
+  .settings-bar-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .settings-bar-text strong { font-size: 13px; }
+  .settings-bar .primary { margin-left: auto; }
+
+  .settings-grid {
+    display: grid; gap: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .settings-grid > .wide { grid-column: 1 / -1; }
+  @media (max-width: 880px) { .settings-grid { grid-template-columns: 1fr; } }
+  .settings-grid .card h3 { font-size: 14px; margin-bottom: 10px; }
+  .card-sub {
+    margin: -4px 0 12px; color: var(--muted);
+    font-size: 12px; line-height: 1.55;
+  }
+  #defaults-box {
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  @media (max-width: 720px) { #defaults-box { grid-template-columns: 1fr; } }
+  #defaults-box .field { margin-bottom: 0; }
   .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
   .card-head h3 { font-size: 15px; }
   .card-head .proto {
@@ -329,12 +388,29 @@
   .cat-details textarea { margin-top: 8px; }
 
   /* ---------- 画廊 ---------- */
-  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  /* ---------- 画廊：瀑布流 + 悬停放大 ---------- */
+  /* 多列布局让竖图/横图各按原始比例排列，不会像固定网格那样被裁成方块 */
+  .grid { column-width: 220px; column-gap: 14px; }
   .thumb {
-    position: relative; background: var(--card); border: 1px solid var(--border);
+    position: relative; break-inside: avoid;
+    margin: 0 0 14px;
+    background: var(--card); border: 1px solid var(--border);
     border-radius: var(--radius); overflow: hidden; cursor: pointer;
+    transition: transform .22s var(--ease), box-shadow .22s var(--ease),
+      border-color .22s var(--ease);
   }
-  .thumb img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--bg); }
+  .thumb:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+    border-color: var(--border-strong);
+    z-index: 1;
+  }
+  .thumb img {
+    width: 100%; height: auto; display: block;
+    background: var(--bg-subtle);
+    transition: transform .35s var(--ease);
+  }
+  .thumb:hover img { transform: scale(1.04); }
   .thumb .cap {
     padding: 7px 9px; font-size: 11px; color: var(--muted);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -579,31 +655,40 @@
 
   <!-- ============ 配置 ============ -->
   <section id="tab-settings" class="panel">
-    <div class="cards">
-      <div class="card">
-        <h3 style="margin-bottom:12px">默认模型</h3>
+    <div class="settings-bar">
+      <div class="settings-bar-text">
+        <strong>配置</strong>
+        <span class="hint" id="settings-hint">改完点右侧保存，立即生效</span>
+      </div>
+      <button id="save-settings" class="primary">保存配置</button>
+    </div>
+
+    <div class="settings-grid">
+      <div class="card wide">
+        <h3>默认模型</h3>
+        <p class="card-sub">只选模型；具体用哪家供应商，由下面「模型与供应商回退」的顺序决定。</p>
         <div id="defaults-box"></div>
       </div>
-      <div class="card" style="grid-column:1/-1">
-        <h3 style="margin-bottom:12px">模型与供应商回退</h3>
+
+      <div class="card wide">
+        <h3>模型与供应商回退</h3>
         <div id="catalog-box"></div>
       </div>
-      <div class="card">
-        <h3 style="margin-bottom:12px">提示词优化</h3>
+
+      <div class="card wide">
+        <h3>提示词优化</h3>
         <div id="optimizer-box"></div>
       </div>
+
       <div class="card">
-        <h3 style="margin-bottom:12px">全局尺寸兜底</h3>
+        <h3>全局尺寸兜底</h3>
         <div id="limits-box"></div>
       </div>
+
       <div class="card">
-        <h3 style="margin-bottom:12px">队列</h3>
+        <h3>队列</h3>
         <div id="queue-box"></div>
       </div>
-    </div>
-    <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
-      <button id="save-settings" class="primary">保存配置</button>
-      <span class="hint" id="settings-hint"></span>
     </div>
   </section>
 </main>
@@ -2686,17 +2771,6 @@ function renderSettings() {
     const styleTag = el("span", "mode-tag");
     styleTag.textContent = fam.style === "tag" ? "tag" : "text";
     row.appendChild(styleTag);
-
-    const edited =
-      String(optimizerDrafts[fam.key] || "").trim() !==
-      String(fam.builtin_prompt || "").trim();
-    if (edited) {
-      const tag = el("span", "mode-tag");
-      tag.textContent = "已改";
-      tag.style.color = "var(--ok)";
-      tag.style.borderColor = "var(--ok)";
-      row.appendChild(tag);
-    }
 
     const spacer = el("span");
     spacer.style.marginLeft = "auto";
