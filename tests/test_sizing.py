@@ -125,15 +125,6 @@ def test_min_pixels_is_raised():
 # ---------------------------------------------------------------- 比例白名单
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "已知缺陷（等授权修复）：resolve_size 先把 aspect 改成白名单里的 1:1，"
-        "但 pure_ratio 仍是用户输入的 16:9，后面的 `pure_ratio in PRESET_RATIOS` "
-        "分支又把尺寸改回 1344x768 —— notes 声称已改用 1:1，实际没有，上游会 400。"
-        "修法：白名单改写 aspect 时同步清空 pure_ratio。"
-    ),
-)
 def test_ratio_whitelist_snaps_to_allowed():
     """模型只允许 1:1 时，16:9 必须真的变成 1:1，否则上游直接 400。"""
     result = resolve_size("16:9", model_limits={"ratios": ["1:1"]})
@@ -141,6 +132,24 @@ def test_ratio_whitelist_snaps_to_allowed():
     assert abs(result.width / result.height - 1.0) < 0.02, (
         f"要求 1:1，实际 {result.width}x{result.height}"
     )
+
+
+def test_ratio_whitelist_also_applies_to_explicit_size():
+    """显式尺寸也要服从比例白名单：按原面积重算，别把不合规的比例发上去。"""
+    result = resolve_size("832x1216", model_limits={"ratios": ["1:1"]})
+    assert any("比例" in note for note in result.notes)
+    assert abs(result.width / result.height - 1.0) < 0.02, (
+        f"要求 1:1，实际 {result.width}x{result.height}"
+    )
+    target = 832 * 1216
+    assert abs(result.width * result.height - target) / target < 0.05
+
+
+def test_explicit_size_kept_when_ratio_is_allowed():
+    """比例本来就合规时，精确尺寸必须原样保留。"""
+    result = resolve_size("896x896", model_limits={"ratios": ["1:1", "3:4"]})
+    assert (result.width, result.height) == (896, 896)
+    assert result.notes == []
 
 
 def test_ratio_whitelist_picks_nearest():

@@ -226,6 +226,7 @@ def resolve_size(
                         aspect = preset[0] / preset[1]
 
     notes: list[str] = []
+    ratio_snapped = False
     allowed = limits.get("ratios") or []
     if allowed:
         nearest = _nearest_ratio(aspect, allowed)
@@ -234,15 +235,22 @@ def resolve_size(
             target_aspect = float(match.group(1)) / max(float(match.group(2)), 1e-6)
             if abs(math.log(target_aspect / aspect)) > 1e-6:
                 notes.append(f"比例 {raw or '默认'} 不在允许列表，改用 {nearest}")
+                ratio_snapped = True
+                # 比例已经被改写，必须同时丢掉 original 的比例标记，
+                # 否则下面的档位表会按用户原来写的比例把尺寸覆盖回去 —— 变成
+                # 「说改了 1:1，实际还是 16:9」，模型只收 1:1 时直接 400。
+                pure_ratio = ""
             aspect = target_aspect
 
-    if width and height:
+    if width and height and not ratio_snapped:
         # 精确尺寸：只做 clamp，不重算比例
         pass
     elif pure_ratio and pure_ratio in PRESET_RATIOS:
         # 纯比例请求优先用标准档位，避免算出 887x1182 这种非标尺寸
         width, height = PRESET_RATIOS[pure_ratio]
     else:
+        # 比例被白名单改写时也走这里：按原面积重算成允许的比例，
+        # 否则显式尺寸会带着不合规的比例发上去，照样本 400。
         width, height = _fit(aspect, target_pixels, align)
 
     def _clamp(w: int, h: int) -> tuple[int, int]:
