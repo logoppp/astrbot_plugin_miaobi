@@ -137,6 +137,12 @@ class Backend:
     ) -> dict[str, Any]:
         raise BackendError(f"{type(self).__name__} 未实现文生视频")
 
+    async def aclose(self) -> None:
+        """释放后端持有的连接池。任务结束/测试结束后必须调用。"""
+        closer = getattr(self.http, "aclose", None)
+        if callable(closer):
+            await closer()
+
     async def test(self) -> dict[str, Any]:
         """连通性自检，尽量不消耗额度：默认只校验配置完整性。"""
         problems: list[str] = []

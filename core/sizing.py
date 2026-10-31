@@ -147,6 +147,7 @@ def _merge_limits(*layers: dict[str, Any] | None) -> dict[str, Any]:
         if ratios:
             if merged["ratios"]:
                 common = [r for r in merged["ratios"] if r in ratios]
+                # 交集为空时保留上一层：宁可放宽比例，也不要把可用集合收成空
                 merged["ratios"] = common or merged["ratios"]
             else:
                 merged["ratios"] = ratios

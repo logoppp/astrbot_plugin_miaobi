@@ -28,6 +28,27 @@ _DONE = {"succeed", "succeeded", "success", "completed"}
 _FAIL = {"failed", "fail", "error"}
 
 
+# 可灵业务码 → HTTP 状态。
+# 状态码直接决定「换不换家、计不计冷却」：400 在调度里既不回退也不冷却，
+# 所以额度耗尽（1101/1102）与限流（1302/1303/1304）必须映射成 429，
+# 否则用户额度用完后会卡在这家反复失败。依据官方错误码表。
+_KLING_STATUS = {
+    1000: 401, 1001: 401, 1002: 401, 1003: 401, 1004: 401,  # 鉴权失败
+    1100: 429, 1101: 429, 1102: 429,                        # 账户异常 / 欠费 / 资源包耗尽
+    1103: 403,                                              # 资源无权限
+    1200: 400, 1201: 400,                                   # 参数非法
+    1202: 404, 1203: 404,                                   # 方法 / 资源不存在
+    1300: 400, 1301: 400,                                   # 平台 / 内容策略
+    1302: 429, 1303: 429, 1304: 429,                        # 限流 / 并发超限 / IP 白名单
+    5000: 500,                                              # 内部错误
+    5001: 503, 5002: 503,                                   # 维护 / 积压超时，换家更稳
+}
+
+
+def kling_status_for(code: int) -> int:
+    return _KLING_STATUS.get(int(code or 0), 400)
+
+
 class KlingBackend(Backend):
     protocol = "kling"
     label = "可灵 Kling（图片 / 视频）"
@@ -100,7 +121,7 @@ class KlingBackend(Backend):
             message = str(pick(payload, "message", "msg", default="") or "")
             raise BackendError(
                 f"可灵 {action} 失败 [{code}] {message}",
-                status=401 if code in (1000, 1001, 1002, 1004) else 400,
+                status=kling_status_for(code),
                 payload=payload,
             )
         return payload
@@ -152,7 +173,6 @@ class KlingBackend(Backend):
             if value is None or value == "":
                 continue
             body.setdefault(field, value)
-        body["aspect_ratio"] = ratio
 
         created = await self.http.post(
             f"{self.base}/v1/images/generations", json_body=body, headers=self.auth()
@@ -216,7 +236,6 @@ class KlingBackend(Backend):
             if value is None or value == "":
                 continue
             body.setdefault(field, value)
-        body["aspect_ratio"] = ratio
 
         created = await self.http.post(
             f"{self.base}/v1/videos/{kind}", json_body=body, headers=self.auth()

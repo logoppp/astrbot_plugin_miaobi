@@ -75,6 +75,8 @@ class MiaobiPlugin(Star):
             optimizer=self.optimizer,
         )
         self.service.on_finished = self._on_job_finished
+        # 必须持有引用：CPython 文档明确警告未引用的 task 可能被 GC 提前回收
+        self._probe_task: asyncio.Task | None = None
 
     async def initialize(self) -> None:
         stale = self.db.fail_stale_jobs()
@@ -111,7 +113,7 @@ class MiaobiPlugin(Star):
             )
             logger.info("[妙笔] 提示词优化使用: %s", picked or "跟随会话默认")
             # Provider 在插件之后才实例化，这里取列表必然是空的，延后探测一次
-            asyncio.create_task(self._probe_llm_providers())
+            self._probe_task = asyncio.create_task(self._probe_llm_providers())
 
     async def _probe_llm_providers(self) -> None:
         """启动后探一次 LLM 供应商，确认提示词优化有模型可用。"""
@@ -564,8 +566,15 @@ class MiaobiPlugin(Star):
         }
 
     async def api_gallery(self) -> dict:
-        limit = int(self._q("limit", 40) or 40)
-        offset = int(self._q("offset", 0) or 0)
+        # 和 api_jobs 一样容错：查询串被手改或前端传空值时不该 500
+        try:
+            limit = int(self._q("limit", 40) or 40)
+        except (TypeError, ValueError):
+            limit = 40
+        try:
+            offset = int(self._q("offset", 0) or 0)
+        except (TypeError, ValueError):
+            offset = 0
         return {
             "status": "ok",
             **self.service.gallery(
@@ -636,11 +645,15 @@ class MiaobiPlugin(Star):
                         "message": f"模型「{model.get('display_name') or model.get('model_id')}」已停用",
                     }
             return {"status": "error", "message": "模型不存在"}
+        backend = None
         try:
             backend = ref.create(media=self.media, settings=self.settings)
             result = await backend.test()
         except Exception as exc:  # noqa: BLE001
             return {"status": "error", "message": f"{type(exc).__name__}: {exc}"}
+        finally:
+            if backend is not None:
+                await backend.aclose()
         return {"status": "ok", "result": result}
 
     async def api_models(self) -> dict:
@@ -676,6 +689,8 @@ class MiaobiPlugin(Star):
         return {"status": "ok", "result": result}
 
     async def terminate(self) -> None:
-        for task in list(self.service._tasks):
-            task.cancel()
+        probe = getattr(self, "_probe_task", None)
+        if probe is not None and not probe.done():
+            probe.cancel()
+        await self.service.shutdown()
         logger.info("[妙笔] 已卸载")

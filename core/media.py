@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import ipaddress
 import json
 import secrets
 import time
@@ -20,6 +21,27 @@ try:
     _HAS_PIL = True
 except Exception:  # noqa: BLE001
     Image = None  # type: ignore[assignment]
+
+
+# 单个媒体文件上限：再大就不是正常的出图结果了，多半是配置错误或恶意地址
+MAX_DOWNLOAD_BYTES = 64 * 1024 * 1024
+
+
+def _blocked_host(host: str) -> bool:
+    """拦掉没有任何正常用途的地址。
+
+    刻意**不拦** 127.0.0.1 与 192.168 / 10 / 172.16 段：
+    本地 ComfyUI 返回的结果图就落在这些地址上，拦了会直接打断自建场景。
+    真正要防的是云元数据地址（169.254.169.254）和组播/保留段。
+    """
+    name = (host or "").strip().strip("[]").lower()
+    if not name:
+        return True
+    try:
+        ip = ipaddress.ip_address(name)
+    except ValueError:
+        return False
+    return ip.is_link_local or ip.is_multicast or ip.is_reserved or str(ip) == "0.0.0.0"
     _HAS_PIL = False
 
 _MIME_EXT = {
@@ -47,6 +69,9 @@ def decode_data_url(value: str) -> tuple[bytes, str]:
     header, _, payload = text[5:].partition(",")
     if not payload:
         raise ValueError("data URL 缺少内容")
+    # base64 体积约为原文件的 4/3，超限直接拒绝，避免一次性解码吃满内存
+    if len(payload) > MAX_DOWNLOAD_BYTES * 4 // 3 + 64:
+        raise ValueError(f"上传内容过大（上限 {MAX_DOWNLOAD_BYTES} 字节）")
     mime = header.split(";")[0].strip().lower() or "application/octet-stream"
     if "base64" in header.lower():
         import base64
@@ -120,13 +145,27 @@ class MediaStore:
         parts = urlsplit(url)
         if parts.scheme not in ("http", "https"):
             raise RuntimeError(f"不支持的下载地址: {url[:80]}")
+        if _blocked_host(parts.hostname or ""):
+            raise RuntimeError(f"拒绝下载该地址: {url[:80]}")
         client_timeout = aiohttp.ClientTimeout(total=float(timeout))
         async with aiohttp.ClientSession(timeout=client_timeout) as session:
             async with session.get(url, headers=headers or {}, proxy=proxy) as response:
                 if response.status >= 400:
                     text = (await response.read())[:200].decode("utf-8", "replace")
                     raise RuntimeError(f"下载失败 HTTP {response.status}: {text}")
-                return await response.read(), response.headers.get("Content-Type", "")
+                declared = response.headers.get("Content-Length")
+                if declared and declared.isdigit() and int(declared) > MAX_DOWNLOAD_BYTES:
+                    raise RuntimeError(
+                        f"文件过大（{int(declared)} 字节，上限 {MAX_DOWNLOAD_BYTES}）"
+                    )
+                chunks: list[bytes] = []
+                total = 0
+                async for chunk in response.content.iter_chunked(64 * 1024):
+                    total += len(chunk)
+                    if total > MAX_DOWNLOAD_BYTES:
+                        raise RuntimeError(f"下载超过 {MAX_DOWNLOAD_BYTES} 字节上限")
+                    chunks.append(chunk)
+                return b"".join(chunks), response.headers.get("Content-Type", "")
 
     # ---------- 保存 ----------
 

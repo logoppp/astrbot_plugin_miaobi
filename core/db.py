@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import json
 import sqlite3
 import time
@@ -73,8 +75,21 @@ class Database:
         conn.execute("PRAGMA synchronous=NORMAL")
         return conn
 
+    @contextmanager
+    def _conn(self):
+        """连接用完必须 close：`with sqlite3.Connection` 只提交事务，并不会关闭连接。"""
+        conn = self._connect()
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
     def _init_schema(self) -> None:
-        with self._connect() as conn:
+        with self._conn() as conn:
             conn.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS jobs (
@@ -162,7 +177,7 @@ class Database:
         payload["created"] = payload.get("created") or time.time()
         columns = ", ".join(payload)
         marks = ", ".join("?" for _ in payload)
-        with self._connect() as conn:
+        with self._conn() as conn:
             conn.execute(
                 f"INSERT OR REPLACE INTO jobs ({columns}) VALUES ({marks})",
                 tuple(payload.values()),
@@ -178,20 +193,20 @@ class Database:
         if not payload:
             return
         assignments = ", ".join(f"{key} = ?" for key in payload)
-        with self._connect() as conn:
+        with self._conn() as conn:
             conn.execute(
                 f"UPDATE jobs SET {assignments} WHERE id = ?",
                 tuple(payload.values()) + (job_id,),
             )
 
     def get_job(self, job_id: str) -> dict[str, Any] | None:
-        with self._connect() as conn:
+        with self._conn() as conn:
             row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
         return self._row(row) if row else None
 
     def fail_stale_jobs(self, message: str = "插件重启，任务已中断") -> int:
         """启动时回收上次残留的 queued/running 任务，否则它们会永远停在「生成中」。"""
-        with self._connect() as conn:
+        with self._conn() as conn:
             row = conn.execute(
                 "SELECT COUNT(*) AS c FROM jobs WHERE state IN ('queued', 'running')"
             ).fetchone()
@@ -213,7 +228,7 @@ class Database:
             args.extend(states)
         sql += " ORDER BY created DESC LIMIT ?"
         args.append(int(limit))
-        with self._connect() as conn:
+        with self._conn() as conn:
             rows = conn.execute(sql, tuple(args)).fetchall()
         return [self._row(row) for row in rows]
 
@@ -234,14 +249,14 @@ class Database:
         payload["deleted"] = int(bool(asset.get("deleted")))
         columns = ", ".join(payload)
         marks = ", ".join("?" for _ in payload)
-        with self._connect() as conn:
+        with self._conn() as conn:
             conn.execute(
                 f"INSERT OR REPLACE INTO assets ({columns}) VALUES ({marks})",
                 tuple(payload.values()),
             )
 
     def get_asset(self, asset_id: str) -> dict[str, Any] | None:
-        with self._connect() as conn:
+        with self._conn() as conn:
             row = conn.execute(
                 "SELECT * FROM assets WHERE id = ? AND deleted = 0", (asset_id,)
             ).fetchone()
@@ -272,7 +287,7 @@ class Database:
         if favorite_only:
             where.append("favorite = 1")
         clause = " WHERE " + " AND ".join(where)
-        with self._connect() as conn:
+        with self._conn() as conn:
             total = conn.execute(
                 f"SELECT COUNT(*) AS c FROM assets{clause}", tuple(args)
             ).fetchone()["c"]
@@ -288,17 +303,17 @@ class Database:
         return items, int(total)
 
     def delete_asset(self, asset_id: str) -> None:
-        with self._connect() as conn:
+        with self._conn() as conn:
             conn.execute("UPDATE assets SET deleted = 1 WHERE id = ?", (asset_id,))
 
     def toggle_favorite(self, asset_id: str, value: bool) -> None:
-        with self._connect() as conn:
+        with self._conn() as conn:
             conn.execute(
                 "UPDATE assets SET favorite = ? WHERE id = ?", (int(bool(value)), asset_id)
             )
 
     def stats(self) -> dict[str, Any]:
-        with self._connect() as conn:
+        with self._conn() as conn:
             row = conn.execute(
                 "SELECT COUNT(*) AS total, COALESCE(SUM(bytes), 0) AS bytes "
                 "FROM assets WHERE deleted = 0"

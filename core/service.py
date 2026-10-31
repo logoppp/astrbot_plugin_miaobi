@@ -346,6 +346,12 @@ class StudioService:
                 except Exception as exc:  # noqa: BLE001
                     logger.debug("[妙笔] 完成通知失败: %s", exc)
 
+    async def shutdown(self) -> None:
+        """取消所有在跑的任务；插件卸载时调用。"""
+        for task in list(self._tasks):
+            task.cancel()
+        self._tasks.clear()
+
     def _merge_progress(self, job_id: str, **extra: Any) -> None:
         """progress 是多步共写的，永远合并、不覆盖。"""
         current = self.db.get_job(job_id) or {}
@@ -380,6 +386,7 @@ class StudioService:
         allow_wait: bool,
     ) -> None:
         """单个供应商的一次完整尝试；值得换家的失败抛 _Fallback。"""
+        backend = None
         try:
             size_result = resolve_size(
                 self._size_request(request, ref),
@@ -459,6 +466,7 @@ class StudioService:
                 size_result.size,
                 duration if capability == CAP_T2V else 0,
                 started=started,
+                size_notes=size_result.notes,
             )
 
             elapsed = time.time() - started
@@ -485,6 +493,10 @@ class StudioService:
             if _should_fallback(exc):
                 raise _Fallback(exc) from exc
             raise
+        finally:
+            # 连接池必须在这里释放：后端实例是每个任务新建的
+            if backend is not None:
+                await backend.aclose()
 
     def _fail(self, job_id: str, message: str) -> None:
         self.db.update_job(
@@ -647,6 +659,7 @@ class StudioService:
         size: str,
         duration: int,
         started: float = 0.0,
+        size_notes: list[str] | None = None,
     ) -> list[dict[str, Any]]:
         items = raw.get("items") or []
         saved: list[dict[str, Any]] = []
@@ -707,7 +720,7 @@ class StudioService:
                     "aspect_ratio": request.get("aspect_ratio") or "",
                     "duration": duration,
                     "seed": item.get("seed"),
-                    "size_notes": [],
+                    "size_notes": list(size_notes or []),
                 },
                 "seed": str(item.get("seed") or ""),
                 "duration": duration,

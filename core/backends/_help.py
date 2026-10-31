@@ -54,7 +54,7 @@ PARAM_HELP: dict[str, str] = {
     "_done_values": "判定任务已完成的取值，多个用逗号分隔，例如 SUCCESS,completed。",
     "_poll_url": "查询任务状态的地址，可用 {task_id} 占位。",
     "_task_path": "从创建响应里取任务 id 的路径，例如 data.task_id。",
-    "_headers": "额外请求头，一行一个 Key: Value。",
+    "_headers": "额外请求头，JSON 对象，例如 {\"X-Api-Version\": \"2\"}。",
     # 方舟组图
     "sequential_image_generation": "方舟组图模式：auto 由模型决定是否一次出多张，disabled 只出一张。",
     "max_images": "组图模式下单次最多生成几张（1~15）。",
@@ -69,7 +69,7 @@ PROTOCOL_HELP: dict[tuple[str, str], str] = {
     ("kling", "cfg_scale"): "可灵建议 0.3~0.7。越高越贴提示词，过高容易过曝。",
     ("kling", "image_fidelity"): "参考图还原度。越高越接近原图，越低越自由发挥。",
     ("kling", "human_fidelity"): "人物面部还原度。做人物换装、保持长相时调高。",
-    ("minimax_video", "resolution"): "档位 512P / 768P / 1080P。越高越清晰，生成越慢。",
+    ("minimax_video", "resolution"): "档位 720P / 768P / 1080P。越高越清晰，生成越慢。",
     ("dashscope_native", "n"): "千问单次最多 4 张，且 n 必须是整数。",
     ("dashscope_native", "async_mode"): "走异步任务接口：先返回任务 id，再轮询结果。",
     ("gemini_image", "image_size"): "档位 1K / 2K / 4K。4K 更清晰，但更慢也更贵。",

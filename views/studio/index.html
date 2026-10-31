@@ -763,6 +763,16 @@ let optimizeOn = null;
 // 优化规则的本地草稿：family.key -> system_prompt，点「保存配置」才落库
 let optimizerDrafts = {};
 const b64Cache = new Map();
+// 一张图的 base64 可能上百 KB，翻几百张画廊会吃满内存，这里按插入顺序淘汰
+const B64_CACHE_MAX = 60;
+
+function cacheB64(key, value) {
+  if (b64Cache.size >= B64_CACHE_MAX) {
+    const oldest = b64Cache.keys().next().value;
+    if (oldest !== undefined) b64Cache.delete(oldest);
+  }
+  b64Cache.set(key, value);
+}
 
 /* ---------------- 基础通信 ---------------- */
 
@@ -1487,7 +1497,7 @@ async function fetchB64(assetId, thumb) {
   if (res.status !== "ok") return "";
   const data = res.data_url || (res.data && res.data.data_url) || res.data || "";
   const url = typeof data === "string" ? data : "";
-  if (url) b64Cache.set(cacheKey, url);
+  if (url) cacheB64(cacheKey, url);
   return url;
 }
 

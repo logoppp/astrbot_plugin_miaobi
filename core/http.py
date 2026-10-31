@@ -60,6 +60,43 @@ class HTTP:
         self.proxy = (proxy or "").strip() or None
         self.retries = max(0, int(retries or 0))
         self.headers = {str(k): str(v) for k, v in (headers or {}).items()}
+        # 复用连接：轮询场景一次任务要发十几次请求，每次新建 session 都要重新握手
+        self._session: aiohttp.ClientSession | None = None
+        self._session_loop: object | None = None
+
+    def _session_for(self) -> aiohttp.ClientSession:
+        loop = asyncio.get_running_loop()
+        if (
+            self._session is None
+            or self._session.closed
+            or self._session_loop is not loop
+        ):
+            self._session = aiohttp.ClientSession(
+                connector=aiohttp.TCPConnector(limit=8, ttl_dns_cache=120)
+            )
+            self._session_loop = loop
+        return self._session
+
+    async def aclose(self) -> None:
+        """任务结束时释放连接池；不调用会留下 Unclosed client session 警告。"""
+        session, self._session = self._session, None
+        self._session_loop = None
+        if session is not None and not session.closed:
+            try:
+                await session.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+    @staticmethod
+    def _retryable_status(method: str, status: int) -> bool:
+        """哪些状态码可以安全重发。
+
+        504 单独处理：上游网关超时说明请求可能已经到达业务端并开始计费，
+        POST 生图/生视频再发一次就是双扣。只有 GET（轮询、探测模型）才重试。
+        """
+        if status == 504:
+            return str(method).upper() == "GET"
+        return status in (408, 500, 502, 503)
 
     async def request(
         self,
@@ -83,51 +120,57 @@ class HTTP:
 
         attempts = self.retries + 1
         last_error: Exception | None = None
+        upper = method.upper()
         for attempt in range(attempts):
             client_timeout = aiohttp.ClientTimeout(total=float(self.timeout))
             try:
-                async with aiohttp.ClientSession(timeout=client_timeout) as session:
-                    async with session.request(
-                        method.upper(),
-                        url,
-                        data=body,
-                        headers=merged,
-                        params=params,
-                        proxy=self.proxy,
-                    ) as response:
-                        raw = await response.read()
-                        if response.status in expect:
-                            return Response(
-                                response.status,
-                                raw,
-                                {k.lower(): v for k, v in response.headers.items()},
-                                url,
-                            )
-                        text = raw[:400].decode("utf-8", "replace")
-                        error = BackendError(
-                            f"HTTP {response.status} {method.upper()} {url} -> {text or '(空响应)'}",
-                            status=response.status,
-                            payload=_maybe_json(raw),
+                session = self._session_for()
+                async with session.request(
+                    upper,
+                    url,
+                    data=body,
+                    headers=merged,
+                    params=params,
+                    proxy=self.proxy,
+                    timeout=client_timeout,
+                ) as response:
+                    raw = await response.read()
+                    if response.status in expect:
+                        return Response(
+                            response.status,
+                            raw,
+                            {k.lower(): v for k, v in response.headers.items()},
+                            url,
                         )
-                        # 只想重试 5xx 与 408；429 交给队列
-                        if (
-                            response.status in (408, 500, 502, 503, 504)
-                            and attempt + 1 < attempts
-                        ):
-                            last_error = error
-                            await asyncio.sleep(min(2 ** attempt, 6))
-                            continue
-                        raise error
+                    text = raw[:400].decode("utf-8", "replace")
+                    error = BackendError(
+                        f"HTTP {response.status} {upper} {url} -> {text or '(空响应)'}",
+                        status=response.status,
+                        payload=_maybe_json(raw),
+                    )
+                    # 429 交给供应商队列处理；504 只对 GET 重试（见 _retryable_status）
+                    if (
+                        self._retryable_status(upper, response.status)
+                        and attempt + 1 < attempts
+                    ):
+                        last_error = error
+                        await asyncio.sleep(min(2 ** attempt, 6))
+                        continue
+                    raise error
             except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
                 last_error = BackendError(
-                    f"{method.upper()} {url} 请求失败: {type(exc).__name__}: {exc}", status=0
+                    f"{upper} {url} 请求失败: {type(exc).__name__}: {exc}", status=0
                 )
-                if attempt + 1 >= attempts:
+                # 只有「连接都没建立起来」才安全重发；请求已发出后超时可能已计费
+                safe_to_retry = (
+                    isinstance(exc, aiohttp.ClientConnectorError) or upper == "GET"
+                )
+                if attempt + 1 >= attempts or not safe_to_retry:
                     raise last_error from exc
                 await asyncio.sleep(min(2 ** attempt, 6))
         if last_error:
             raise last_error
-        raise BackendError(f"{method.upper()} {url} 未知错误")
+        raise BackendError(f"{upper} {url} 未知错误")
 
     async def get(self, url: str, **kwargs: Any) -> Response:
         return await self.request("GET", url, **kwargs)
