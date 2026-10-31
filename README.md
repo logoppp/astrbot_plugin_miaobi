@@ -119,6 +119,19 @@
 - 所有配置、任务记录、生成的图片都在 AstrBot 的 `data/plugin_data/astrbot_plugin_miaobi/` 下，不在插件目录内。
 - 插件不向任何第三方上报数据；请求只发往你自己配置的供应商地址。
 
+## 测试
+
+纯函数部分有单元测试，覆盖三块最容易出事的逻辑：**尺寸解析**（算错就被上游 400）、
+**配置规范化与迁移**（写错会静默丢用户数据）、**回退决策**（判错会重复计费）。
+
+```bash
+# 在 AstrBot 容器里跑（core.registry / core.service 依赖 astrbot.api）
+docker exec astrbot python3 -m pytest /AstrBot/data/plugins/astrbot_plugin_miaobi/tests -q
+```
+
+`tests/test_sizing.py` 与 `tests/test_models_normalize.py` 不依赖 AstrBot，
+在本地装了 pytest 的机器上也能直接跑；另外两个模块会自动 skip。
+
 ## 目录结构
 
 ```
@@ -140,6 +153,7 @@ astrbot_plugin_miaobi/
 │   ├── sizing.py            # 分辨率换算
 │   ├── store.py / db.py / media.py / http.py
 │   └── backends/            # 各协议实现
+├── tests/                   # 单元测试（pytest）
 └── views/studio/index.html  # 内置工作台
 ```
 
