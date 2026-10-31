@@ -1,0 +1,8 @@
+{
+  "enable": {
+    "type": "bool",
+    "description": "启用妙笔",
+    "hint": "关闭后聊天命令与 LLM 工具不再响应，工作台页面仍可打开用于调整供应商和配置。",
+    "default": true
+  }
+}

@@ -1,0 +1,3029 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>妙笔 · 工作台</title>
+<script src="/api/plugin/page/bridge-sdk.js"></script>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --bg-subtle: #eef1f5;
+    --card: #ffffff;
+    --text: #171a20;
+    --muted: #667085;
+    --border: #e4e8ee;
+    --border-strong: #d5dbe5;
+    --accent: #3355ff;
+    --accent-hover: #2646e0;
+    --accent-soft: #eef1ff;
+    --ok: #067647;
+    --warn: #b54708;
+    --err: #b42318;
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, .05);
+    --shadow: 0 1px 3px rgba(16, 24, 40, .07), 0 14px 34px -18px rgba(16, 24, 40, .18);
+    --shadow-lg: 0 24px 64px -24px rgba(16, 24, 40, .32);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --ease: cubic-bezier(.4, 0, .2, 1);
+  }
+  html[data-theme="dark"], body.dark {
+    --bg: #0f1116;
+    --bg-subtle: #171a21;
+    --card: #191d25;
+    --text: #e9ecf2;
+    --muted: #98a1b0;
+    --border: #262c36;
+    --border-strong: #333a46;
+    --accent: #7d9aff;
+    --accent-hover: #93aaff;
+    --accent-soft: #1e2740;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --err: #f87171;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .5);
+    --shadow: 0 1px 3px rgba(0, 0, 0, .5), 0 14px 34px -18px rgba(0, 0, 0, .7);
+    --shadow-lg: 0 24px 64px -24px rgba(0, 0, 0, .8);
+  }
+  * { box-sizing: border-box; }
+  html {
+    /* 始终预留滚动条槽：页面有没有滚动条，内容宽度都一样，顶栏不会左右跳 */
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+  h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -.01em; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    outline-offset: 1px;
+  }
+  /* 细一点的滚动条，避免抢视觉 */
+  * { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-thumb {
+    background: var(--border-strong); border-radius: 10px;
+    border: 3px solid transparent; background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: content-box; }
+
+  /* ---------- 顶栏 ---------- */
+  .top {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    padding: 11px 24px;
+    background: color-mix(in srgb, var(--card) 84%, transparent);
+    backdrop-filter: saturate(180%) blur(14px);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: baseline; gap: 9px; }
+  .brand h1 { font-size: 16px; letter-spacing: .2px; }
+  .brand .sub { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .tabs {
+    display: flex; gap: 2px; margin-left: auto;
+    padding: 3px; border-radius: 10px; background: var(--bg-subtle);
+  }
+  .tabs button {
+    border: 0; background: transparent; color: var(--muted);
+    padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
+    transition: background .18s var(--ease), color .18s var(--ease);
+  }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.on {
+    color: var(--accent); background: var(--card); box-shadow: var(--shadow-sm);
+  }
+  .ghost {
+    border: 1px solid var(--border); background: var(--card);
+    padding: 7px 14px; border-radius: var(--radius-sm); font-size: 13px;
+    transition: border-color .18s var(--ease), color .18s var(--ease), background .18s var(--ease);
+  }
+  .ghost:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .primary {
+    border: 0; background: var(--accent); color: #fff;
+    padding: 9px 20px; border-radius: var(--radius-sm);
+    font-weight: 600; font-size: 13px;
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--accent) 30%, transparent);
+    transition: background .18s var(--ease), transform .12s var(--ease);
+  }
+  .primary:hover { background: var(--accent-hover); }
+  .primary:active { transform: translateY(1px); }
+  .primary:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; transform: none; }
+  .danger { color: var(--err); border-color: color-mix(in srgb, var(--err) 40%, transparent); }
+
+  .banner {
+    display: none; margin: 12px 20px 0; padding: 9px 14px;
+    border-radius: 8px; font-size: 13px;
+  }
+  .banner.show { display: block; }
+  .banner.ok { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+  .banner.warn { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+  .banner.err { background: color-mix(in srgb, var(--err) 14%, transparent); color: var(--err); }
+
+  main { padding: 20px 24px 56px; max-width: 1560px; margin: 0 auto; }
+  .panel { display: none; }
+  .panel.on { display: block; animation: panel-in .22s var(--ease); }
+  @keyframes panel-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* ---------- 表单 ---------- */
+  /* .field 的 display 会盖掉浏览器默认的 [hidden]，必须显式声明 */
+  [hidden] { display: none !important; }
+  .field { display: block; margin-bottom: 12px; }
+  .field > span { display: block; margin-bottom: 5px; font-size: 12px; color: var(--muted); }
+  .field > span .q, .param-help {
+    display: inline-grid; place-items: center;
+    width: 14px; height: 14px; margin-left: 3px;
+    border: 1px solid var(--border); border-radius: 50%;
+    font-size: 10px; font-style: normal; line-height: 1;
+    color: var(--muted); cursor: help; vertical-align: 1px;
+  }
+  .field:hover > span .q { color: var(--accent); border-color: var(--accent); }
+  input[type="text"], input[type="number"], input:not([type]), select, textarea {
+    width: 100%; padding: 8px 11px;
+    background: var(--card); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    outline: none;
+    transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
+  }
+  input[type="text"]:hover, input[type="number"]:hover, select:hover, textarea:hover {
+    border-color: var(--border-strong);
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+  textarea { resize: vertical; line-height: 1.55; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; min-width: 0; }
+  .seg { display: flex; gap: 4px; padding: 3px; background: var(--bg); border-radius: 9px; margin-bottom: 14px; }
+  .seg button {
+    flex: 1; border: 0; background: transparent; color: var(--muted);
+    padding: 7px 6px; border-radius: 7px; font-size: 13px;
+  }
+  .seg button.on { background: var(--card); color: var(--text); box-shadow: var(--shadow); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; }
+  .chips button {
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    padding: 3px 9px; border-radius: 20px; font-size: 12px;
+  }
+  .chips button:hover { border-color: var(--accent); color: var(--accent); }
+  .chips button.on {
+    background: var(--accent-soft); color: var(--accent);
+    border-color: var(--accent); font-weight: 600;
+  }
+  .preset-box { margin: -2px 0 12px; }
+  .preset-head {
+    display: flex; align-items: baseline; gap: 8px;
+    font-size: 12px; color: var(--muted); margin-bottom: 6px;
+  }
+  .preset-head .hint { font-size: 11px; }
+  .adv { margin: 4px 0 14px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; }
+  .adv summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .adv[open] summary { margin-bottom: 10px; }
+  .params { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .params .field { margin: 0; }
+  .chk { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+  .opt-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: -4px 0 12px; }
+  .opt-row .hint { font-size: 11px; }
+  .hint { color: var(--muted); font-size: 12px; }
+
+  /* ---------- 工作区 ---------- */
+  .ws { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .ws { grid-template-columns: 1fr; } }
+  .ws-form, .ws-out {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow-sm);
+  }
+  .ws-out { min-height: 420px; display: flex; flex-direction: column; }
+  .job-state {
+    font-size: 13px; color: var(--muted); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .job-state .tag {
+    padding: 2px 9px; border-radius: 20px; font-size: 12px;
+    background: var(--bg); border: 1px solid var(--border);
+  }
+  .job-state .tag.run { color: var(--accent); border-color: var(--accent); }
+  .job-state .tag.done { color: var(--ok); border-color: var(--ok); }
+  .job-state .tag.fail { color: var(--err); border-color: var(--err); }
+  .result { flex: 1; display: grid; gap: 12px; align-content: start; }
+  .result img, .result video {
+    max-width: 100%; max-height: 56vh; width: auto; height: auto;
+    object-fit: contain; justify-self: center;
+    border-radius: 8px; background: var(--bg); display: block;
+  }
+  .result .empty {
+    display: grid; place-items: center; min-height: 320px;
+    color: var(--muted); font-size: 13px; border: 1px dashed var(--border); border-radius: 8px;
+  }
+  .meta { font-size: 12px; color: var(--muted); white-space: pre-wrap; word-break: break-word; }
+
+  /* ---------- 供应商 ---------- */
+  .bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .bar input, .bar select { width: auto; min-width: 160px; }
+  .cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-sm);
+    transition: border-color .18s var(--ease), box-shadow .18s var(--ease);
+  }
+  .card:hover { border-color: var(--border-strong); box-shadow: var(--shadow); }
+  .card.off { opacity: .6; }
+  .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .card-head h3 { font-size: 15px; }
+  .card-head .proto {
+    font-size: 11px; color: var(--muted); border: 1px solid var(--border);
+    padding: 1px 7px; border-radius: 20px;
+  }
+  .card-head .spacer { margin-left: auto; }
+  .kv { font-size: 12px; color: var(--muted); display: grid; gap: 2px; margin-bottom: 10px; }
+  .kv b { color: var(--text); font-weight: 500; }
+  .model-list { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+  .model-list span {
+    font-size: 11px; padding: 2px 8px; border-radius: 20px;
+    background: var(--bg); border: 1px solid var(--border); color: var(--muted);
+  }
+  .card-actions { display: flex; gap: 8px; }
+  .card-actions button { padding: 5px 12px; border-radius: 7px; font-size: 12px; }
+
+  /* ---------- 模型探测面板 ---------- */
+  .probe-box { margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 10px; }
+  .probe-head { font-size: 12px; margin-bottom: 6px; }
+  .probe-note { font-size: 11px; color: var(--muted); line-height: 1.55; margin-bottom: 8px; }
+  .probe-tools { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .probe-search { flex: 1; padding: 5px 8px !important; font-size: 12px; }
+  .probe-only {
+    display: flex; align-items: center; gap: 4px; white-space: nowrap;
+    font-size: 12px; color: var(--muted);
+  }
+  .probe-list {
+    max-height: 220px; overflow: auto; padding: 6px 8px;
+    border: 1px solid var(--border); border-radius: 8px; display: grid; gap: 3px;
+  }
+  .probe-row { display: flex; align-items: center; gap: 6px; font-size: 12px; padding: 2px 0; }
+  .probe-name {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11px; word-break: break-all;
+  }
+  .probe-tag {
+    margin-left: auto; font-size: 10px; color: var(--ok);
+    border: 1px solid var(--ok); border-radius: 20px; padding: 0 6px;
+  }
+  .probe-foot { display: flex; gap: 8px; margin-top: 8px; }
+  .probe-foot button { padding: 5px 12px; border-radius: 7px; font-size: 12px; }
+
+  /* ---------- 优化规则列表 ---------- */
+  .fam-list { display: grid; gap: 6px; margin-top: 8px; }
+  .fam-row { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .fam-name { color: var(--text); }
+
+  /* ---------- 模型与供应商回退 ---------- */
+  .cat-list { display: grid; gap: 10px; }
+  .cat-item {
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--card); padding: 12px 14px;
+    transition: border-color .18s var(--ease);
+  }
+  .cat-item:hover { border-color: var(--border-strong); }
+  .cat-item.is-off { opacity: .55; background: var(--bg-subtle); }
+  .cat-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .cat-title { font-weight: 600; font-size: 13px; }
+  .cat-note { color: var(--muted); font-size: 12px; margin: 3px 0 0; }
+  .cat-bindings { display: grid; gap: 4px; margin-top: 9px; }
+  .cat-binding {
+    display: flex; align-items: center; gap: 7px;
+    padding: 4px 8px; border-radius: 7px; background: var(--bg-subtle); font-size: 12px;
+  }
+  .cat-binding .idx {
+    width: 17px; height: 17px; border-radius: 50%; flex: none;
+    display: grid; place-items: center; font-size: 10px;
+    background: var(--card); border: 1px solid var(--border); color: var(--muted);
+  }
+  .cat-binding .who {
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .cat-binding .who.bad { color: var(--err); }
+  .cat-add { display: flex; gap: 8px; margin-top: 9px; }
+  .cat-add select { flex: 1; min-width: 0; }
+  .cat-details { margin-top: 9px; }
+  .cat-details > summary {
+    cursor: pointer; color: var(--muted); font-size: 12px; list-style: none;
+  }
+  .cat-details > summary::-webkit-details-marker { display: none; }
+  .cat-details > summary::before { content: "▸ "; }
+  .cat-details[open] > summary::before { content: "▾ "; }
+  .cat-details textarea { margin-top: 8px; }
+
+  /* ---------- 画廊 ---------- */
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  .thumb {
+    position: relative; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden; cursor: pointer;
+  }
+  .thumb img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--bg); }
+  .thumb .cap {
+    padding: 7px 9px; font-size: 11px; color: var(--muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .thumb .fav {
+    position: absolute; top: 6px; right: 6px; width: 26px; height: 26px;
+    display: grid; place-items: center; border-radius: 50%;
+    background: rgba(0,0,0,.45); color: #fff; border: 0; font-size: 13px;
+  }
+  .thumb .fav.on { color: #fbbf24; }
+  .loading { color: var(--muted); font-size: 13px; padding: 20px; text-align: center; }
+
+  /* ---------- 参考图上传 ---------- */
+  .ref-drop {
+    border: 1px dashed var(--border); border-radius: 9px; padding: 14px;
+    text-align: center; color: var(--muted); font-size: 12px; cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .ref-drop:hover { border-color: var(--accent); color: var(--accent); }
+  .ref-strip { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .ref-item { position: relative; width: 74px; height: 74px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+  .ref-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ref-item button {
+    position: absolute; top: 2px; right: 2px; width: 18px; height: 18px;
+    display: grid; place-items: center; border-radius: 50%; border: 0;
+    background: rgba(0,0,0,.55); color: #fff; font-size: 11px; line-height: 1; cursor: pointer;
+  }
+
+  /* ---------- 任务队列 ---------- */
+  .jobs { display: grid; gap: 6px; margin-top: 12px; }
+  .jobs .job-row {
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    font-size: 12px; cursor: pointer;
+  }
+  .jobs .job-row.on { border-color: var(--accent); }
+  .jobs .job-row .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: none; }
+  .jobs .job-row .dot.queued { background: #f59e0b; }
+  .jobs .job-row .dot.running { background: var(--accent); animation: pulse 1.2s infinite; }
+  .jobs .job-row .dot.completed { background: var(--ok); }
+  .jobs .job-row .dot.failed { background: var(--err); }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+  .jobs .job-row .txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .jobs .job-row .st { color: var(--muted); flex: none; }
+
+  /* ---------- 弹窗 ---------- */
+  .modal-mask {
+    position: fixed; inset: 0; background: rgba(8, 10, 14, .55);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 40px 16px; overflow: auto; z-index: 60;
+  }
+  .modal-mask.show { display: flex; }
+  .modal {
+    width: min(760px, 100%); background: var(--card); border-radius: 12px;
+    border: 1px solid var(--border); box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  }
+  .modal-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+  }
+  .modal-head h3 { font-size: 15px; }
+  .modal-head .spacer { margin-left: auto; }
+  .modal-body { padding: 16px 18px; max-height: 66vh; overflow: auto; }
+  .modal-foot {
+    display: flex; gap: 10px; justify-content: flex-end;
+    padding: 12px 18px; border-top: 1px solid var(--border);
+  }
+  .model-row {
+    display: grid; grid-template-columns: 1.1fr 1fr auto auto auto; gap: 8px;
+    align-items: center;
+  }
+  .model-item {
+    padding: 8px 0 10px;
+    border-bottom: 1px dashed var(--border);
+  }
+  .model-item:last-child { border-bottom: 0; }
+  .mini {
+    border: 1px solid var(--border); background: var(--card); color: var(--muted);
+    padding: 4px 10px; border-radius: 6px; font-size: 11px; white-space: nowrap;
+    transition: border-color .15s var(--ease), color .15s var(--ease), background .15s var(--ease);
+  }
+  .mini:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .mini:disabled { opacity: .35; cursor: not-allowed; }
+  .mini:disabled:hover { border-color: var(--border); color: var(--muted); background: var(--card); }
+  .mini.danger:hover { border-color: var(--err); color: var(--err); background: color-mix(in srgb, var(--err) 10%, transparent); }
+  .preset-panel {
+    margin-top: 8px; padding: 10px 12px;
+    background: var(--bg); border-radius: 8px; border: 1px solid var(--border);
+  }
+  .preset-edit-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--muted); margin-bottom: 8px;
+  }
+  .preset-edit-head button { margin-left: auto; }
+  .preset-item {
+    border: 1px solid var(--border); border-radius: 7px;
+    padding: 6px 10px; margin-bottom: 6px; background: var(--card);
+  }
+  .preset-item summary {
+    display: flex; align-items: center; gap: 8px;
+    cursor: pointer; font-size: 13px; list-style: none;
+  }
+  .preset-item summary::-webkit-details-marker { display: none; }
+  .preset-item summary::before { content: "▸"; color: var(--muted); font-size: 11px; }
+  .preset-item[open] summary::before { content: "▾"; }
+  .pi-name { font-weight: 500; margin-right: auto; }
+  .mode-tag {
+    font-size: 10px; padding: 1px 6px; border-radius: 20px;
+    background: var(--accent-soft); color: var(--accent);
+  }
+  .pi-body { margin-top: 10px; }
+  .pi-body .field { margin-bottom: 8px; }
+  .model-row .caps { display: flex; gap: 4px; }
+  .model-row .caps button {
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    padding: 3px 8px; border-radius: 6px; font-size: 11px;
+  }
+  .model-row .caps button.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  .del-x {
+    border: 1px solid var(--border); background: transparent; color: var(--muted);
+    width: 28px; height: 28px; border-radius: 7px; line-height: 1;
+  }
+  .del-x:hover { color: var(--err); border-color: var(--err); }
+  .platform-pick { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
+  .platform-pick button {
+    text-align: left; padding: 10px 12px; border-radius: 9px;
+    border: 1px solid var(--border); background: var(--card);
+  }
+  .platform-pick button:hover { border-color: var(--accent); }
+  .platform-pick strong { display: block; font-size: 13px; margin-bottom: 2px; }
+  .platform-pick small { color: var(--muted); font-size: 11px; line-height: 1.4; }
+  .big-view {
+    max-width: 100%; max-height: 62vh; width: auto; height: auto;
+    object-fit: contain; border-radius: 8px; display: block; margin: 0 auto 12px;
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><h1>妙笔</h1><span class="sub" id="stat">读取中…</span></div>
+  <nav class="tabs">
+    <button data-tab="workspace" class="on">工作区</button>
+    <button data-tab="providers">供应商</button>
+    <button data-tab="gallery">画廊</button>
+    <button data-tab="settings">配置</button>
+  </nav>
+  <button id="refresh" class="ghost">刷新</button>
+</header>
+<div id="banner" class="banner"></div>
+
+<main>
+  <!-- ============ 工作区 ============ -->
+  <section id="tab-workspace" class="panel on">
+    <div class="ws">
+      <div class="ws-form">
+        <div class="seg" id="cap-seg">
+          <button data-cap="t2i" class="on">文生图</button>
+          <button data-cap="i2i">图生图</button>
+          <button data-cap="t2v">文生视频</button>
+        </div>
+        <label class="field">
+          <span>模型</span>
+          <select id="model-select"></select>
+        </label>
+        <label class="field">
+          <span>提示词<i class="q" title="写你想要的画面。勾选下面的「优化提示词」时，这段文字会先交给 LLM 按当前模型的规则改写；取消勾选则原样提交。">?</i></span>
+          <textarea id="prompt" rows="5" placeholder="描述你想要的画面，越具体越好"></textarea>
+        </label>
+        <div class="opt-row">
+          <label class="chk" title="勾选后先把提示词交给 LLM 按当前模型的规则改写；取消勾选则原样提交（预设仍会照常套用）">
+            <input type="checkbox" id="ws-optimize" />
+            <span>提交前优化提示词</span>
+          </label>
+          <span class="hint" id="ws-optimize-hint"></span>
+        </div>
+        <div class="preset-box">
+          <div class="preset-head">
+            <span>提示词预设</span>
+            <span class="hint" id="preset-hint"></span>
+          </div>
+          <div class="chips" id="preset-chips"></div>
+        </div>
+        <div class="row">
+          <label class="field" title="三种写法：1024x1024 精确宽高 / 3:4 比例 / 3:4@1.5MP 比例加像素量。留空则用该模型的默认尺寸。">
+            <span>尺寸 / 比例<i class="q" title="三种写法：1024x1024 精确宽高 / 3:4 比例 / 3:4@1.5MP 比例加像素量。留空则用该模型的默认尺寸。">?</i></span>
+            <input id="size" placeholder="1024x1024 · 3:4 · 3:4@1.5MP" />
+          </label>
+          <label class="field" id="duration-field" hidden title="仅文生视频有效，单位秒。各平台支持的档位不同，例如可灵只接受 5 或 10。">
+            <span>时长（秒）<i class="q" title="仅文生视频有效，单位秒。各平台支持的档位不同，例如可灵只接受 5 或 10。">?</i></span>
+            <input id="duration" type="number" min="1" max="60" value="5" />
+          </label>
+        </div>
+        <div class="chips" id="size-chips"></div>
+        <div class="field" id="ref-field" hidden>
+          <span>参考图（最多 4 张）</span>
+          <div class="ref-drop" id="ref-drop">点击上传图片，或把图片拖到这里</div>
+          <input type="file" id="ref-files" accept="image/*" multiple hidden />
+          <div class="ref-strip" id="ref-strip"></div>
+        </div>
+        <details class="adv">
+          <summary>高级参数</summary>
+          <div id="param-box" class="params"></div>
+        </details>
+        <button id="go" class="primary" style="width:100%">开始生成</button>
+        <div class="hint" id="ws-hint" style="margin-top:8px"></div>
+      </div>
+      <div class="ws-out">
+        <div id="job-state" class="job-state">还没有任务</div>
+        <div id="result" class="result">
+          <div class="empty">生成结果会显示在这里</div>
+        </div>
+        <div class="hint" style="margin-top:14px">任务队列（刷新或离开页面回来会接着显示）</div>
+        <div class="jobs" id="job-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 供应商 ============ -->
+  <section id="tab-providers" class="panel">
+    <div class="bar">
+      <button id="add-provider" class="primary">新增供应商</button>
+      <span class="hint">从平台预设开始，填上 API Key 就能用。改完记得点保存。</span>
+    </div>
+    <div id="provider-list" class="cards"></div>
+  </section>
+
+  <!-- ============ 画廊 ============ -->
+  <section id="tab-gallery" class="panel">
+    <div class="bar">
+      <input id="g-search" placeholder="搜索提示词 / 模型" />
+      <select id="g-kind">
+        <option value="">全部类型</option>
+        <option value="image">图片</option>
+        <option value="video">视频</option>
+      </select>
+      <label class="chk"><input type="checkbox" id="g-fav" /> 只看收藏</label>
+      <button id="g-reload" class="ghost">刷新</button>
+      <span class="hint" id="g-count"></span>
+    </div>
+    <div id="gallery" class="grid"></div>
+  </section>
+
+  <!-- ============ 配置 ============ -->
+  <section id="tab-settings" class="panel">
+    <div class="cards">
+      <div class="card">
+        <h3 style="margin-bottom:12px">默认模型</h3>
+        <div id="defaults-box"></div>
+      </div>
+      <div class="card" style="grid-column:1/-1">
+        <h3 style="margin-bottom:12px">模型与供应商回退</h3>
+        <div id="catalog-box"></div>
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom:12px">提示词优化</h3>
+        <div id="optimizer-box"></div>
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom:12px">全局尺寸兜底</h3>
+        <div id="limits-box"></div>
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom:12px">队列</h3>
+        <div id="queue-box"></div>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px;align-items:center">
+      <button id="save-settings" class="primary">保存配置</button>
+      <span class="hint" id="settings-hint"></span>
+    </div>
+  </section>
+</main>
+
+<!-- ============ 供应商编辑弹窗 ============ -->
+<div id="modal-mask" class="modal-mask">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modal-title">编辑供应商</h3>
+      <span class="spacer"></span>
+      <button class="del-x" id="modal-close">×</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-foot">
+      <button class="ghost" id="modal-cancel">取消</button>
+      <button class="primary" id="modal-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 资产详情弹窗 ============ -->
+<div id="view-mask" class="modal-mask">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>详情</h3>
+      <span class="spacer"></span>
+      <button class="del-x" id="view-close">×</button>
+    </div>
+    <div class="modal-body" id="view-body"></div>
+    <div class="modal-foot">
+      <button class="ghost" id="view-reuse">复用参数</button>
+      <button class="ghost" id="view-fav">收藏</button>
+      <button class="ghost danger" id="view-del">删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 通用确认弹窗（iframe 沙箱屏蔽了原生 confirm） ============ -->
+<div id="confirm-mask" class="modal-mask">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head">
+      <h3 id="confirm-title">确认操作</h3>
+    </div>
+    <div class="modal-body" id="confirm-text"></div>
+    <div class="modal-foot">
+      <button class="ghost" id="confirm-no">取消</button>
+      <button class="primary" id="confirm-yes">确定</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const REL = "studio";
+const ABS = "/api/plug/astrbot_plugin_miaobi/studio";
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls) => { const n = document.createElement(tag); if (cls) n.className = cls; return n; };
+const CAP_LABEL = { t2i: "文生图", i2i: "图生图", t2v: "文生视频" };
+const CAPS = ["t2i", "i2i", "t2v"];
+
+let state = null;
+let cap = "t2i";
+let selectedModel = "";
+let jobsTimer = null;
+let editingProvider = null;
+let viewingAsset = null;
+let activePreset = null;
+// 用户点过预设后就不再自动套默认预设，避免手动取消又被拉回来
+let presetTouched = false;
+// null 表示还没初始化，跟随全局配置；用户勾过之后就是明确的 true/false
+let optimizeOn = null;
+// 优化规则的本地草稿：family.key -> system_prompt，点「保存配置」才落库
+let optimizerDrafts = {};
+const b64Cache = new Map();
+
+/* ---------------- 基础通信 ---------------- */
+
+function bridge() {
+  const api = window.AstrBotPluginView || window.AstrBotPluginPage;
+  return api && typeof api.apiGet === "function" ? api : null;
+}
+
+function unwrap(raw) {
+  if (!raw || typeof raw !== "object") return { status: "error", message: "空响应" };
+  if (raw.status === "ok" || raw.status === "error") return raw;
+  if (typeof raw.status === "number" && raw.data) return unwrap(raw.data);
+  if (raw.data && typeof raw.data === "object") return { status: "ok", data: raw.data };
+  if ("status" in raw) return raw;
+  return { status: "ok", data: raw };
+}
+
+async function apiGet(path, params) {
+  // 查询参数必须走第二个入参：bridge 只把它当 endpoint 用，拼在路径里会 404
+  const clean = {};
+  Object.keys(params || {}).forEach((key) => {
+    const value = params[key];
+    if (value !== "" && value !== null && value !== undefined) clean[key] = String(value);
+  });
+  const api = bridge();
+  if (api) {
+    try {
+      return unwrap(await api.apiGet(`${REL}/${path}`, clean));
+    } catch (err) {
+      // bridge 已把后端的 status:error 转成异常。页面在 sandbox iframe 里，
+      // 回退 fetch 不带 cookie 只会失败，反而把真实报错盖掉
+      return { status: "error", message: (err && err.message) || "请求失败" };
+    }
+  }
+  const query = new URLSearchParams(clean).toString();
+  const resp = await fetch(`${ABS}/${path}${query ? "?" + query : ""}`, { credentials: "include" });
+  return unwrap(await resp.json());
+}
+
+async function apiPost(path, body) {
+  const api = bridge();
+  if (api) {
+    try {
+      return unwrap(await api.apiPost(`${REL}/${path}`, body));
+    } catch (err) {
+      return { status: "error", message: (err && err.message) || "请求失败" };
+    }
+  }
+  const resp = await fetch(`${ABS}/${path}`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body || {}),
+  });
+  return unwrap(await resp.json());
+}
+
+function banner(kind, text) {
+  const box = $("banner");
+  box.className = `banner show ${kind}`;
+  box.textContent = text;
+  if (kind !== "err") setTimeout(() => { box.className = "banner"; }, 3200);
+}
+
+/* 页面在 sandbox="allow-scripts" 的 iframe 里，原生 confirm 会被静默拦掉并返回 false，
+   点了删除看起来"没反应"，所以自己实现一个确认框。 */
+function confirmDialog(text, title) {
+  return new Promise((resolve) => {
+    const mask = $("confirm-mask");
+    $("confirm-title").textContent = title || "确认操作";
+    $("confirm-text").textContent = text;
+    mask.classList.add("show");
+    const done = (value) => {
+      mask.classList.remove("show");
+      mask.onclick = null;
+      resolve(value);
+    };
+    $("confirm-yes").onclick = () => done(true);
+    $("confirm-no").onclick = () => done(false);
+    mask.onclick = (e) => { if (e.target === mask) done(false); };
+  });
+}
+
+/* ---------------- 全局状态 ---------------- */
+
+async function loadState() {
+  const res = await apiGet("state");
+  if (res.status !== "ok") { banner("err", res.message || "读取失败"); return; }
+  state = res.data || res;
+  optimizerDrafts = {};
+  renderAll();
+}
+
+function renderAll() {
+  if (!state) return;
+  const modelCount = (state.models || []).length;
+  const providerCount = (state.providers || []).length;
+  const stats = state.stats || {};
+  $("stat").textContent = `${providerCount} 个供应商 · ${modelCount} 个模型 · 累计 ${stats.total || 0} 个作品`;
+  renderModelSelect();
+  renderSizeChips();
+  renderParams();
+  renderPresets();
+  renderOptimizeToggle();
+  renderProviders();
+  renderSettings();
+}
+
+/* 工作区的「提交前优化提示词」开关：默认跟随配置，勾过之后按本次选择走 */
+function renderOptimizeToggle() {
+  const box = $("ws-optimize");
+  if (!box) return;
+  const cfg = (state.settings || {}).optimizer || {};
+  const globalOn = cfg.enabled !== false;
+  if (optimizeOn === null) {
+    let saved = null;
+    try { saved = localStorage.getItem("miaobi.optimize"); } catch (e) { saved = null; }
+    optimizeOn = saved === null ? globalOn : saved === "1";
+  }
+  box.checked = !!optimizeOn;
+  const model = currentBackend();
+  const family = (model && model.optimizer_family) || "";
+  const hint = $("ws-optimize-hint");
+  if (!globalOn) {
+    hint.textContent = "配置里已关闭优化，勾选也不会生效";
+  } else if (optimizeOn) {
+    hint.textContent = family ? `按「${family}」规则改写` : "";
+  } else {
+    hint.textContent = "原样提交，预设仍会套用";
+  }
+}
+
+$("ws-optimize").addEventListener("change", (e) => {
+  optimizeOn = e.target.checked;
+  try { localStorage.setItem("miaobi.optimize", optimizeOn ? "1" : "0"); } catch (err) { /* 沙箱里忽略 */ }
+  renderOptimizeToggle();
+});
+
+/* ---------------- 标签切换 ---------------- */
+
+document.querySelectorAll(".tabs button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b === btn));
+    const name = btn.dataset.tab;
+    document.querySelectorAll(".panel").forEach((p) => p.classList.toggle("on", p.id === `tab-${name}`));
+    if (name === "gallery") loadGallery();
+  });
+});
+
+$("refresh").addEventListener("click", async () => {
+  await loadState();
+  banner("ok", "已刷新");
+});
+
+/* ---------------- 工作区 ---------------- */
+
+function modelsFor(capability) {
+  return (state.models || []).filter((m) => (m.capabilities || []).includes(capability));
+}
+
+function currentBackend() {
+  return (state.models || []).find((m) => m.key === selectedModel) || null;
+}
+
+function currentProtocol() {
+  const m = currentBackend();
+  if (!m) return null;
+  return (state.protocols || []).find((p) => p.id === m.protocol) || null;
+}
+
+function renderModelSelect() {
+  const select = $("model-select");
+  const list = modelsFor(cap);
+  select.innerHTML = "";
+  if (!list.length) {
+    const opt = el("option");
+    opt.textContent = `没有可用的「${CAP_LABEL[cap]}」模型`;
+    opt.value = "";
+    select.appendChild(opt);
+    selectedModel = "";
+    $("ws-hint").textContent = "先去「供应商」页添加一个模型。";
+    return;
+  }
+  const defaults = (state.settings && state.settings.defaults) || {};
+  const preferred = defaults[cap];
+  if (!list.some((m) => m.key === selectedModel)) {
+    selectedModel = list.some((m) => m.key === preferred) ? preferred : list[0].key;
+  }
+  list.forEach((m) => {
+    const opt = el("option");
+    opt.value = m.key;
+    const providers = m.providers_ready || 0;
+    opt.textContent = `${m.name || m.label}${providers > 1 ? ` · ${providers} 家` : ""}${
+      m.ready === false ? "（无可用供应商）" : ""
+    }`;
+    if (m.key === selectedModel) opt.selected = true;
+    select.appendChild(opt);
+  });
+  $("ws-hint").textContent = "";
+}
+
+/* ---------------- 参考图上传 ---------------- */
+
+let refImages = [];
+const REF_MAX = 4;
+const REF_EDGE = 1600;
+
+function renderRefStrip() {
+  const box = $("ref-strip");
+  box.innerHTML = "";
+  refImages.forEach((item, index) => {
+    const wrap = el("div", "ref-item");
+    const img = el("img");
+    img.src = item.data;
+    img.alt = item.name;
+    wrap.appendChild(img);
+    const del = el("button");
+    del.textContent = "×";
+    del.title = "移除";
+    del.addEventListener("click", (e) => {
+      e.stopPropagation();
+      refImages.splice(index, 1);
+      renderRefStrip();
+    });
+    wrap.appendChild(del);
+    box.appendChild(wrap);
+  });
+}
+
+function readImageFile(file) {
+  // 直接把文件读成 data URL 交给后端；大图先压到 1600px，避免 JSON 体过大
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("读取失败"));
+    reader.onload = () => {
+      const raw = String(reader.result || "");
+      const image = new Image();
+      image.onerror = () => resolve(raw);
+      image.onload = () => {
+        const longest = Math.max(image.width, image.height);
+        if (longest <= REF_EDGE && raw.length <= 900000) { resolve(raw); return; }
+        const scale = Math.min(1, REF_EDGE / longest);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        try {
+          resolve(canvas.toDataURL("image/jpeg", 0.9));
+        } catch (err) {
+          resolve(raw);
+        }
+      };
+      image.src = raw;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function addRefFiles(files) {
+  const picked = Array.from(files || []).filter((f) => /^image\//.test(f.type || ""));
+  if (!picked.length) return;
+  const room = REF_MAX - refImages.length;
+  if (room <= 0) { banner("warn", `最多 ${REF_MAX} 张参考图`); return; }
+  for (const file of picked.slice(0, room)) {
+    try {
+      refImages.push({ name: file.name || "ref", data: await readImageFile(file) });
+    } catch (err) {
+      banner("err", `读取 ${file.name || "图片"} 失败`);
+    }
+  }
+  renderRefStrip();
+  if (picked.length > room) banner("warn", `最多 ${REF_MAX} 张，多余的已忽略`);
+  else banner("ok", `已添加 ${Math.min(picked.length, room)} 张参考图`);
+}
+
+$("ref-drop").addEventListener("click", () => $("ref-files").click());
+$("ref-files").addEventListener("change", async (e) => {
+  await addRefFiles(e.target.files);
+  e.target.value = "";
+});
+["dragenter", "dragover"].forEach((type) => {
+  $("ref-drop").addEventListener(type, (e) => { e.preventDefault(); });
+});
+$("ref-drop").addEventListener("drop", async (e) => {
+  e.preventDefault();
+  await addRefFiles(e.dataTransfer && e.dataTransfer.files);
+});
+
+$("model-select").addEventListener("change", (e) => {
+  selectedModel = e.target.value;
+  presetTouched = false;   // 换模型时重新按新模型的默认预设自动选中
+  renderSizeChips();
+  renderParams();
+  renderPresets();
+  renderOptimizeToggle();
+});
+
+document.querySelectorAll("#cap-seg button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    cap = btn.dataset.cap;
+    document.querySelectorAll("#cap-seg button").forEach((b) => b.classList.toggle("on", b === btn));
+    $("ref-field").hidden = cap !== "i2i";
+    $("duration-field").hidden = cap !== "t2v";
+    renderModelSelect();
+    renderSizeChips();
+    renderParams();
+    renderPresets();
+  });
+});
+
+function renderSizeChips() {
+  const box = $("size-chips");
+  box.innerHTML = "";
+  const m = currentBackend();
+  const defaults = (m && m.defaults) || {};
+  const picks = cap === "t2v"
+    ? ["16:9", "9:16", "1:1"]
+    : ["1:1", "3:4", "4:3", "16:9", "9:16", "2:3"];
+  const byRatio = defaults.ratio_sizes || {};
+  picks.forEach((ratio) => {
+    const btn = el("button");
+    const size = byRatio[ratio] || "";
+    btn.textContent = size ? `${ratio} ${size}` : ratio;
+    btn.addEventListener("click", () => { $("size").value = size || ratio; });
+    box.appendChild(btn);
+  });
+  const fallback = defaults.size || "";
+  if (fallback && !$("size").value) $("size").value = fallback;
+}
+
+function renderParams() {
+  const box = $("param-box");
+  box.innerHTML = "";
+  const proto = currentProtocol();
+  const m = currentBackend();
+  if (!proto) return;
+  const schema = proto.param_schema || {};
+  const preset = (m && m.params) || {};
+  const keys = Object.keys(schema);
+  if (!keys.length) {
+    box.innerHTML = '<div class="hint">该协议没有可调参数</div>';
+    return;
+  }
+  keys.forEach((key) => {
+    const spec = schema[key] || {};
+    const wrap = el("label", "field");
+    const title = el("span");
+    title.textContent = spec.label || key;
+    const help = spec.help || "";
+    if (help) {
+      const q = el("i", "q");
+      q.textContent = "?";
+      q.title = help;
+      title.appendChild(q);
+      wrap.title = help;
+    }
+    wrap.appendChild(title);
+    let input;
+    if (spec.type === "bool") {
+      input = el("select");
+      ["默认", "是", "否"].forEach((text, idx) => {
+        const opt = el("option");
+        opt.value = idx === 0 ? "" : idx === 1 ? "1" : "0";
+        opt.textContent = text;
+        input.appendChild(opt);
+      });
+      if (typeof preset[key] === "boolean") input.value = preset[key] ? "1" : "0";
+    } else if (spec.type === "enum") {
+      input = el("select");
+      const blank = el("option");
+      blank.value = "";
+      blank.textContent = "默认";
+      input.appendChild(blank);
+      (spec.options || []).forEach((value) => {
+        const opt = el("option");
+        opt.value = value;
+        opt.textContent = value;
+        input.appendChild(opt);
+      });
+      // 模型级参数要能在界面上看见，否则显示「默认」但请求里其实带了值
+      const current = preset[key];
+      if (current !== undefined && current !== null && current !== "") {
+        const want = String(current);
+        if ([...input.options].some((opt) => opt.value === want)) input.value = want;
+      }
+    } else {
+      input = el("input");
+      input.type = spec.type === "int" || spec.type === "float" ? "number" : "text";
+      if (spec.type === "float") input.step = "0.1";
+      if (preset[key] !== undefined && preset[key] !== "") input.value = preset[key];
+      if (spec.default !== undefined) input.placeholder = String(spec.default);
+    }
+    input.dataset.paramKey = key;
+    input.dataset.paramType = spec.type || "string";
+    if (help) input.title = help;
+    wrap.appendChild(input);
+    box.appendChild(wrap);
+  });
+}
+
+function presetHintText(preset) {
+  const mode = preset.mode || "append";
+  const labels = { append: "生成时追加", wrap: "生成时按结构套用", replace: "生成时整段替换" };
+  const preview = String(preset.prompt || "").replace("{prompt}", "〔你的提示词〕");
+  if (!preview.trim()) return `${labels[mode] || "套用"}：（没有正文，只用它的负面词与参数）`;
+  return `${labels[mode] || "套用"}：${preview.length > 48 ? preview.slice(0, 48) + "…" : preview}`;
+}
+
+function renderPresets() {
+  const box = $("preset-chips");
+  if (!box) return;
+  const keepId = activePreset ? activePreset.id : "";
+  box.innerHTML = "";
+  activePreset = null;
+  const model = currentBackend();
+  const hint = $("preset-hint");
+  // 画师串只对 tag 类模型（NovelAI / Anima）有意义，其余交给 LLM 优化
+  if (!model || model.optimizer_style !== "tag") {
+    if (hint) {
+      hint.textContent = "该模型不走画师串预设，提示词由 LLM 优化";
+      hint.title = "";
+    }
+    return;
+  }
+  const presets = (model && model.prompt_presets) || [];
+  if (!presets.length) {
+    hint.textContent = "该模型还没有预设，可在「供应商 → 编辑 → 模型」里添加";
+    hint.title = "";
+    return;
+  }
+  hint.textContent = "";
+  hint.title = "";
+  // 用户没手动选过时，自动套用该模型的默认预设（画师串）
+  const autoId =
+    keepId || (!presetTouched ? (model && model.default_preset_id) || "" : "");
+  let restored = null;
+  presets.forEach((preset) => {
+    const btn = el("button");
+    btn.textContent = preset.name;
+    const labels = { append: "追加", wrap: "结构模板", replace: "替换" };
+    const isDefault = model && preset.id === model.default_preset_id;
+    btn.title = `${labels[preset.mode] || preset.mode}${isDefault ? " · 默认预设" : ""}${preset.note ? " · " + preset.note : ""}`;
+    if (autoId && preset.id === autoId) {
+      btn.classList.add("on");
+      restored = preset;
+    }
+    btn.addEventListener("click", () => applyPreset(preset, btn));
+    box.appendChild(btn);
+  });
+  // 保存供应商/配置会触发整页重渲染，这里把已选预设恢复回来
+  if (restored) {
+    activePreset = restored;
+    hint.textContent = presetHintText(restored);
+    hint.title = String(restored.prompt || "").replace("{prompt}", "〔你的提示词〕");
+  }
+}
+
+function applyPreset(preset, btn) {
+  const current = $("prompt").value.trim();
+  const mode = preset.mode || "append";
+  if (mode === "wrap" && !current) {
+    banner("warn", "先在提示词里写下主体，再用这个结构模板套上去");
+    return;
+  }
+  const already = btn.classList.contains("on");
+  presetTouched = true;
+  document.querySelectorAll("#preset-chips button").forEach((node) => {
+    node.classList.toggle("on", node === btn && !already);
+  });
+  activePreset = already ? null : preset;
+
+  if (activePreset && preset.negative_prompt) {
+    const negInput = document.querySelector('#param-box [data-param-key="negative_prompt"]');
+    if (negInput && !negInput.value) negInput.value = preset.negative_prompt;
+  }
+
+  const hint = $("preset-hint");
+  if (!activePreset) {
+    hint.textContent = "";
+    hint.title = "";
+    return;
+  }
+  // 提示词框始终保留你写的原话，预设由后端在生成时套用
+  hint.textContent = presetHintText(preset);
+  hint.title = String(preset.prompt || "").replace("{prompt}", "〔你的提示词〕");
+}
+
+function collectParams() {
+  const out = {};
+  document.querySelectorAll("#param-box [data-param-key]").forEach((input) => {
+    const key = input.dataset.paramKey;
+    const type = input.dataset.paramType;
+    const raw = input.value;
+    if (raw === "" || raw === undefined) return;
+    if (type === "bool") out[key] = raw === "1";
+    else if (type === "int") out[key] = parseInt(raw, 10);
+    else if (type === "float") out[key] = parseFloat(raw);
+    else out[key] = raw;
+  });
+  return out;
+}
+
+function setJobState(text, kind) {
+  const box = $("job-state");
+  box.innerHTML = "";
+  const tag = el("span", `tag ${kind || ""}`);
+  tag.textContent = text;
+  box.appendChild(tag);
+}
+
+$("go").addEventListener("click", async () => {
+  if (!selectedModel) { banner("err", "先选一个模型"); return; }
+  const prompt = $("prompt").value.trim();
+  if (!prompt) { banner("err", "提示词不能为空"); return; }
+  if (cap === "i2i" && !refImages.length) { banner("err", "图生图需要至少上传一张参考图"); return; }
+
+  $("go").disabled = true;
+  setJobState("提交中…", "run");
+  const res = await apiPost("generate", {
+    capability: cap,
+    model: selectedModel,
+    prompt,
+    preset_id: activePreset ? activePreset.id : "",
+    optimize: optimizeOn === null ? undefined : optimizeOn,
+    size: $("size").value.trim(),
+    duration: cap === "t2v" ? parseInt($("duration").value || "5", 10) : 0,
+    params: collectParams(),
+    image_urls: cap === "i2i" ? refImages.map((item) => item.data) : [],
+  });
+  if (res.status !== "ok") {
+    $("go").disabled = false;
+    setJobState("提交失败", "fail");
+    banner("err", res.message || "提交失败");
+    $("result").innerHTML = `<div class="empty">${escapeHtml(res.message || "提交失败")}</div>`;
+    return;
+  }
+  const jobId = (res.job && res.job.id) || (res.data && res.data.job && res.data.job.id);
+  if (!jobId) { $("go").disabled = false; return; }
+  activeJobId = jobId;
+  try { localStorage.setItem("miaobi.activeJob", jobId); } catch (e) { /* 忽略 */ }
+  await loadJobs();
+});
+
+function escapeHtml(text) {
+  return String(text == null ? "" : text).replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
+}
+
+/* ---------------- 任务队列 ---------------- */
+
+let jobsCache = [];
+let activeJobId = "";
+
+function jobStatusOf(job) {
+  const prog = job.progress || {};
+  if (job.state === "queued") {
+    const pos = prog.queue_position ? `第 ${prog.queue_position} 位` : "";
+    const wait = prog.cooldown_remaining ? `冷却 ${prog.cooldown_remaining}s` : "";
+    return { label: "排队中", extra: [pos, wait].filter(Boolean).join(" · "), kind: "queued" };
+  }
+  if (job.state === "running") {
+    return { label: "生成中", extra: prog.size || "", kind: "running" };
+  }
+  if (job.state === "completed") {
+    const secs = prog.elapsed ? `${Math.round(prog.elapsed)}s` : "";
+    return { label: "完成", extra: secs, kind: "completed" };
+  }
+  if (job.state === "failed") {
+    return { label: "失败", extra: "", kind: "failed" };
+  }
+  return { label: job.state || "未知", extra: "", kind: "" };
+}
+
+function renderJobList() {
+  const box = $("job-list");
+  if (!box) return;
+  box.innerHTML = "";
+  if (!jobsCache.length) {
+    box.innerHTML = '<div class="hint">还没有任务</div>';
+    return;
+  }
+  jobsCache.slice(0, 12).forEach((job) => {
+    const info = jobStatusOf(job);
+    const row = el("div", `job-row${job.id === activeJobId ? " on" : ""}`);
+    row.appendChild(el("span", `dot ${info.kind}`));
+    const txt = el("span", "txt");
+    txt.textContent = [
+      CAP_LABEL[job.capability] || job.capability || "",
+      job.model_label || "",
+      String(job.prompt || "").slice(0, 20),
+    ].filter(Boolean).join(" · ");
+    txt.title = job.prompt || "";
+    row.appendChild(txt);
+    const st = el("span", "st");
+    st.textContent = info.extra ? `${info.label} ${info.extra}` : info.label;
+    row.appendChild(st);
+    row.addEventListener("click", () => selectJob(job.id));
+    box.appendChild(row);
+  });
+}
+
+function scheduleJobs(running) {
+  if (jobsTimer) { clearTimeout(jobsTimer); jobsTimer = null; }
+  if (running) jobsTimer = setTimeout(loadJobs, 1800);
+}
+
+async function loadJobs() {
+  let res;
+  try {
+    res = await apiGet("jobs", { limit: 20 });
+  } catch (err) {
+    scheduleJobs(false);
+    return;
+  }
+  if (!res || res.status !== "ok") { scheduleJobs(false); return; }
+  const data = res.jobs ? res : (res.data || {});
+  jobsCache = data.jobs || [];
+  const active = data.active || [];
+  renderJobList();
+  // 当前选中的任务无论是否还在跑都要刷新一次，否则完成瞬间会停在「生成中」
+  if (activeJobId) {
+    await selectJob(activeJobId, true);
+  } else if (active.length) {
+    await selectJob(active[0], true);
+  } else if (jobsCache.length) {
+    // 没有正在跑的任务时回落到最近一条，刷新页面后仍能看到上次结果
+    await selectJob(jobsCache[0].id, true);
+  }
+  scheduleJobs(active.length > 0);
+}
+
+async function selectJob(jobId, quiet) {
+  if (!jobId) return;
+  activeJobId = jobId;
+  try { localStorage.setItem("miaobi.activeJob", jobId); } catch (e) { /* 无痕模式忽略 */ }
+  renderJobList();
+  let res;
+  try {
+    res = await apiGet("job", { id: jobId });
+  } catch (err) {
+    if (!quiet) banner("err", "任务查询失败");
+    return;
+  }
+  if (!res || res.status !== "ok") {
+    if (!quiet) banner("err", (res && res.message) || "任务查询失败");
+    return;
+  }
+  const data = res.job ? res : (res.data || {});
+  const job = data.job || {};
+  renderJob(job, data.assets || []);
+  const running = job.state === "queued" || job.state === "running";
+  $("go").disabled = running;
+}
+
+function renderJob(job, assets) {
+  const prog = job.progress || {};
+  if (job.state === "queued") {
+    const pos = prog.queue_position ? ` · 排队第 ${prog.queue_position} 位` : "";
+    const wait = prog.cooldown_remaining ? ` · 冷却 ${prog.cooldown_remaining}s` : "";
+    setJobState(`排队中${pos}${wait}`, "run");
+    return;
+  }
+  if (job.state === "running") {
+    const size = prog.size ? ` · ${prog.size}` : "";
+    const elapsed = prog.elapsed ? ` · ${prog.elapsed}s` : "";
+    setJobState(`生成中${size}${elapsed}`, "run");
+    return;
+  }
+  if (job.state === "failed") {
+    setJobState("失败", "fail");
+    $("result").innerHTML = `<div class="empty">${escapeHtml(job.error || "未知错误")}</div>`;
+    return;
+  }
+  if (job.state !== "completed") return;
+
+  setJobState(`完成 · ${prog.elapsed || 0}s · ${prog.size || ""}`, "done");
+  const box = $("result");
+  box.innerHTML = "";
+  if (!assets.length) {
+    box.innerHTML = '<div class="empty">任务完成但没有可显示的资产</div>';
+    return;
+  }
+  assets.forEach((asset) => {
+    const holder = el("div");
+    const media = asset.kind === "video" ? el("video") : el("img");
+    if (asset.kind === "video") { media.controls = true; media.playsInline = true; }
+    media.alt = asset.prompt || "";
+    holder.appendChild(media);
+    const meta = el("div", "meta");
+    const opt = (job.progress || {}).optimizer || {};
+    meta.textContent = [
+      `${asset.width || "?"}x${asset.height || "?"} · ${formatBytes(asset.bytes)}`,
+      asset.model_id ? `模型 ${asset.model_id}` : "",
+      opt.preset ? `预设 ${opt.preset}（${opt.preset_mode || ""}）` : "",
+      opt.used ? `提示词已优化（${opt.style === "tag" ? "Danbooru tag" : "自然语言"}）` : "提示词未优化",
+      asset.seed ? `种子 ${asset.seed}` : "",
+      (prog.ignored_params || []).length
+        ? `该模型不支持，已忽略：${prog.ignored_params.join("、")}` : "",
+      asset.optimized_prompt && asset.optimized_prompt !== asset.prompt
+        ? `最终提示词：${asset.optimized_prompt}` : "",
+    ].filter(Boolean).join("\n");
+    holder.appendChild(meta);
+    box.appendChild(holder);
+    fillMedia(media, asset.id, false);
+  });
+}
+
+function formatBytes(n) {
+  const num = Number(n || 0);
+  if (!num) return "?";
+  if (num < 1024) return `${num}B`;
+  if (num < 1024 * 1024) return `${(num / 1024).toFixed(1)}KB`;
+  return `${(num / 1024 / 1024).toFixed(2)}MB`;
+}
+
+async function fetchB64(assetId, thumb) {
+  const cacheKey = `${assetId}:${thumb ? 1 : 0}`;
+  if (b64Cache.has(cacheKey)) return b64Cache.get(cacheKey);
+  const res = await apiPost("asset", { action: "b64", id: assetId, thumb: !!thumb });
+  if (res.status !== "ok") return "";
+  const data = res.data_url || (res.data && res.data.data_url) || res.data || "";
+  const url = typeof data === "string" ? data : "";
+  if (url) b64Cache.set(cacheKey, url);
+  return url;
+}
+
+async function fillMedia(node, assetId, thumb) {
+  const url = await fetchB64(assetId, thumb);
+  if (url) node.src = url;
+}
+
+/* ---------------- 供应商 ---------------- */
+
+function renderProviders() {
+  const box = $("provider-list");
+  box.innerHTML = "";
+  const list = state.providers || [];
+  if (!list.length) {
+    box.innerHTML = '<div class="loading">还没有供应商，点左上角「新增供应商」开始。</div>';
+    return;
+  }
+  list.forEach((prov) => {
+    const card = el("div", `card${prov.enabled === false ? " off" : ""}`);
+    const head = el("div", "card-head");
+    const title = el("h3");
+    title.textContent = prov.name;
+    head.appendChild(title);
+    const proto = el("span", "proto");
+    proto.textContent = prov.protocol;
+    head.appendChild(proto);
+    const spacer = el("span", "spacer");
+    head.appendChild(spacer);
+    const toggle = el("input");
+    toggle.type = "checkbox";
+    toggle.checked = prov.enabled !== false;
+    toggle.title = "启用 / 停用";
+    toggle.addEventListener("change", async () => {
+      prov.enabled = toggle.checked;
+      card.classList.toggle("off", !toggle.checked);
+      await saveProviders();
+    });
+    head.appendChild(toggle);
+    card.appendChild(head);
+
+    const kv = el("div", "kv");
+    const keyCount = (prov.api_keys || []).length;
+    kv.innerHTML = `
+      <div>地址　<b>${escapeHtml(prov.base_url || "（未填）")}</b></div>
+      <div>密钥　<b>${keyCount ? keyCount + " 个" : "未配置"}</b>　并发 <b>${prov.concurrency}</b>　超时 <b>${prov.timeout}s</b></div>
+      <div>冷却　<b>${prov.cooldown_seconds || 0}s</b>　队列上限 <b>${prov.max_queue}</b></div>`;
+    card.appendChild(kv);
+
+    const models = el("div", "model-list");
+    (prov.models || []).forEach((m) => {
+      const chip = el("span");
+      const caps = (m.capabilities || []).map((c) => CAP_LABEL[c] || c).join("/");
+      chip.textContent = `${m.display_name || m.model_id}（${caps}）`;
+      models.appendChild(chip);
+    });
+    if (!(prov.models || []).length) {
+      const chip = el("span");
+      chip.textContent = "还没有模型";
+      models.appendChild(chip);
+    }
+    card.appendChild(models);
+
+    const actions = el("div", "card-actions");
+    const edit = el("button", "ghost");
+    edit.textContent = "编辑";
+    edit.addEventListener("click", () => openProviderModal(prov));
+    actions.appendChild(edit);
+    const test = el("button", "ghost");
+    test.textContent = "测连通";
+    test.addEventListener("click", async () => {
+      const first = (prov.models || [])[0];
+      if (!first) { banner("err", "该供应商还没有模型"); return; }
+      test.disabled = true;
+      test.textContent = "测试中…";
+      const res = await apiPost("test", { model: first.id });
+      test.disabled = false;
+      test.textContent = "测连通";
+      const result = (res.result || (res.data && res.data.result)) || null;
+      if (res.status !== "ok") banner("err", res.message || "测试失败");
+      else if (result && result.ok) banner("ok", `${prov.name}: 配置完整${result.edit_mode ? " · " + result.edit_mode : ""}`);
+      else banner("warn", `${prov.name}: ${(result && (result.problems || []).join("；")) || "有问题"}`);
+    });
+    actions.appendChild(test);
+
+    const meta = (state.protocols || []).find((p) => p.id === prov.protocol) || {};
+    const detect = el("button", "ghost");
+    detect.textContent = "检测模型";
+    detect.title = meta.models_supported
+      ? `向「${prov.protocol}」请求可用模型列表（只读请求，不消耗生成额度）`
+      : "该协议没有模型列表接口，需要手动填写 model_id";
+    detect.disabled = !meta.models_supported;
+    detect.addEventListener("click", () => detectModels(prov, card, detect));
+    actions.appendChild(detect);
+
+    const del = el("button", "ghost danger");
+    del.textContent = "删除";
+    del.addEventListener("click", async () => {
+      if (!(await confirmDialog(`确定删除供应商「${prov.name}」及其 ${(prov.models || []).length} 个模型？`, "删除供应商"))) return;
+      state.providers = state.providers.filter((p) => p.id !== prov.id);
+      await saveProviders();
+    });
+    actions.appendChild(del);
+    card.appendChild(actions);
+    box.appendChild(card);
+  });
+}
+
+/* ---- 模型探测 ---- */
+
+async function detectModels(prov, card, btn) {
+  const old = card.querySelector(".probe-box");
+  if (old) old.remove();
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = "检测中…";
+  const res = await apiPost("models", { provider_id: prov.id });
+  btn.disabled = false;
+  btn.textContent = label;
+  const result = (res.result || (res.data && res.data.result)) || {};
+  if (res.status !== "ok") {
+    banner("err", res.message || "检测失败");
+    return;
+  }
+  renderProbe(prov, card, result);
+}
+
+function renderProbe(prov, card, result) {
+  const models = result.models || [];
+  const existing = new Set((prov.models || []).map((m) => m.model_id));
+  const caps = result.capabilities || ["t2i"];
+  const kinds = models.filter((m) => m.kind);
+
+  const box = el("div", "probe-box");
+  const head = el("div", "probe-head");
+  head.textContent = `检测到 ${models.length} 个模型`
+    + (kinds.length ? `，其中 ${kinds.length} 个像图片 / 视频模型` : "");
+  box.appendChild(head);
+
+  if (result.note) {
+    const note = el("div", "probe-note");
+    note.textContent = result.note;
+    box.appendChild(note);
+  }
+
+  const tools = el("div", "probe-tools");
+  const search = el("input", "probe-search");
+  search.type = "text";
+  search.placeholder = "过滤模型名…";
+  tools.appendChild(search);
+
+  const only = el("label", "probe-only");
+  const onlyInput = el("input");
+  onlyInput.type = "checkbox";
+  onlyInput.checked = kinds.length > 0;
+  onlyInput.disabled = !kinds.length;
+  only.appendChild(onlyInput);
+  only.appendChild(document.createTextNode(" 只看图片/视频"));
+  tools.appendChild(only);
+  box.appendChild(tools);
+
+  const list = el("div", "probe-list");
+  box.appendChild(list);
+
+  const picked = new Set();
+  const rows = [];
+  models.forEach((m) => {
+    const row = el("label", "probe-row");
+    const cb = el("input");
+    cb.type = "checkbox";
+    cb.value = m.id;
+    const has = existing.has(m.id);
+    if (has) {
+      cb.checked = true;
+      cb.disabled = true;
+      picked.add(m.id);
+    }
+    cb.addEventListener("change", () => {
+      if (cb.checked) picked.add(m.id);
+      else picked.delete(m.id);
+      refresh();
+    });
+    row.appendChild(cb);
+    const name = el("span", "probe-name");
+    name.textContent = m.id;
+    row.appendChild(name);
+    if (has) {
+      const tag = el("span", "probe-tag");
+      tag.textContent = "已添加";
+      row.appendChild(tag);
+    }
+    row.dataset.kind = m.kind || "";
+    row.dataset.key = m.id.toLowerCase();
+    rows.push(row);
+    list.appendChild(row);
+  });
+
+  const foot = el("div", "probe-foot");
+  const add = el("button", "primary");
+  const close = el("button", "ghost");
+  close.textContent = "关闭";
+  close.addEventListener("click", () => box.remove());
+  foot.appendChild(add);
+  foot.appendChild(close);
+  box.appendChild(foot);
+
+  function refresh() {
+    const q = search.value.trim().toLowerCase();
+    rows.forEach((row) => {
+      const kindOk = !onlyInput.checked || row.dataset.kind;
+      const nameOk = !q || row.dataset.key.includes(q);
+      row.style.display = kindOk && nameOk ? "" : "none";
+    });
+    const fresh = [...picked].filter((id) => !existing.has(id));
+    add.textContent = fresh.length ? `添加选中的 ${fresh.length} 个` : "没有新选择";
+    add.disabled = !fresh.length;
+  }
+
+  search.addEventListener("input", refresh);
+  onlyInput.addEventListener("change", refresh);
+
+  add.addEventListener("click", async () => {
+    const fresh = [...picked].filter((id) => !existing.has(id));
+    if (!fresh.length) return;
+    prov.models = prov.models || [];
+    fresh.forEach((id) => {
+      prov.models.push({
+        id: "m_" + Math.random().toString(16).slice(2, 10),
+        provider_id: prov.id,
+        model_id: id,
+        display_name: id.split("/").pop(),
+        capabilities: caps.slice(),
+        aliases: [],
+        defaults: {},
+        limits: {},
+        params: {},
+        prompt_presets: [],
+        default_preset_id: "",
+        enabled: true,
+      });
+    });
+    if (await saveProviders()) banner("ok", `已添加 ${fresh.length} 个模型`);
+  });
+
+  card.appendChild(box);
+  refresh();
+}
+
+async function saveProviders() {
+  const res = await apiPost("providers", { providers: state.providers });
+  if (res.status !== "ok") { banner("err", res.message || "保存失败"); return false; }
+  const payload = res.providers ? res : (res.data || {});
+  state.providers = payload.providers || state.providers;
+  state.models = payload.models || state.models;
+  renderAll();
+  banner("ok", "供应商已保存");
+  return true;
+}
+
+/* ---- 供应商弹窗 ---- */
+
+let modalDirty = false;
+
+function openModal(title, buildBody, onSave) {
+  $("modal-title").textContent = title;
+  const body = $("modal-body");
+  body.innerHTML = "";
+  buildBody(body);
+  modalDirty = false;
+  // 标记是否有未保存的改动：敲字/改下拉即标记，点按钮（增删模型、设默认等）也算。
+  body.oninput = () => { modalDirty = true; };
+  body.onchange = () => { modalDirty = true; };
+  body.onclick = (e) => {
+    const t = e.target;
+    if (t && t.closest && t.closest("button")) modalDirty = true;
+  };
+  $("modal-mask").classList.add("show");
+  $("modal-save").onclick = async () => {
+    const ok = await onSave();
+    if (ok !== false) { modalDirty = false; closeModal(); }
+  };
+}
+
+/* 退出编辑只有三条路：保存成功、取消、右上角 ×。
+   点遮罩不再关闭 —— 拖选文本时鼠标从输入框滑到遮罩上松手，click 的 target
+   会变成遮罩，整个编辑框瞬间消失、刚敲的内容全丢。 */
+function closeModal(force) {
+  if (!force && modalDirty) {
+    confirmDialog("当前编辑还没保存，关闭后这些修改会丢失。确定关闭？", "放弃修改？")
+      .then((yes) => { if (yes) closeModal(true); });
+    return;
+  }
+  modalDirty = false;
+  $("modal-mask").classList.remove("show");
+  editingProvider = null;
+}
+
+$("modal-close").addEventListener("click", () => closeModal());
+$("modal-cancel").addEventListener("click", () => closeModal());
+
+function field(label, value, onInput, opts) {
+  const wrap = el("label", "field");
+  const span = el("span");
+  span.textContent = label;
+  wrap.appendChild(span);
+  const input = el(opts && opts.textarea ? "textarea" : "input");
+  if (opts && opts.textarea) input.rows = opts.rows || 3;
+  if (opts && opts.type) input.type = opts.type;
+  if (opts && opts.placeholder) input.placeholder = opts.placeholder;
+  input.value = value == null ? "" : value;
+  input.addEventListener("input", () => onInput(input.value));
+  wrap.appendChild(input);
+  return wrap;
+}
+
+function jsonField(label, value, onParsed, opts) {
+  const wrap = el("label", "field");
+  const span = el("span");
+  span.textContent = label;
+  wrap.appendChild(span);
+  const input = el("textarea");
+  input.rows = (opts && opts.rows) || 3;
+  input.spellcheck = false;
+  input.value = JSON.stringify(value || {}, null, 2);
+  const hint = el("div", "hint");
+  const apply = () => {
+    const text = input.value.trim();
+    if (!text) {
+      input.dataset.jsonInvalid = "";
+      input.style.borderColor = "";
+      hint.textContent = "";
+      onParsed({});
+      return;
+    }
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error("需要 JSON 对象");
+      }
+      onParsed(parsed);
+      input.dataset.jsonInvalid = "";
+      input.style.borderColor = "";
+      hint.textContent = "";
+    } catch (e) {
+      input.dataset.jsonInvalid = "1";
+      input.style.borderColor = "var(--err)";
+      hint.textContent = "JSON 不合法：" + e.message;
+    }
+  };
+  input.addEventListener("input", apply);
+  wrap.appendChild(input);
+  wrap.appendChild(hint);
+  return wrap;
+}
+
+function newProviderId() {
+  return "p_" + Math.random().toString(16).slice(2, 10);
+}
+function newModelId() {
+  return "m_" + Math.random().toString(16).slice(2, 10);
+}
+
+function blankModel() {
+  return {
+    id: newModelId(),
+    model_id: "",
+    display_name: "",
+    capabilities: ["t2i"],
+    aliases: [],
+    defaults: {},
+    limits: {},
+    params: {},
+    prompt_presets: [],
+    default_preset_id: "",
+    enabled: true,
+  };
+}
+
+const MODE_LABEL = { append: "追加", wrap: "结构", replace: "替换" };
+
+function openProviderModal(prov) {
+  editingProvider = prov || {
+    id: newProviderId(),
+    name: "",
+    protocol: "openai_images",
+    base_url: "",
+    api_keys: [],
+    headers: {},
+    proxy: "",
+    timeout: 300,
+    max_retries: 1,
+    concurrency: 1,
+    cooldown_seconds: 0,
+    max_queue: 8,
+    poll_timeout: 900,
+    edit_mode: "edits",
+    extra_body: {},
+    enabled: true,
+    models: [blankModel()],
+  };
+  const draft = JSON.parse(JSON.stringify(editingProvider));
+
+  openModal(prov ? "编辑供应商" : "新增供应商", (body) => {
+    body.appendChild(field("名称", draft.name, (v) => { draft.name = v; }, { placeholder: "火山方舟·图片" }));
+
+    const protoWrap = el("label", "field");
+    const protoSpan = el("span");
+    protoSpan.textContent = "协议";
+    protoWrap.appendChild(protoSpan);
+    const protoSelect = el("select");
+    (state.protocols || []).forEach((p) => {
+      const opt = el("option");
+      opt.value = p.id;
+      opt.textContent = `${p.label}（${(p.capabilities || []).map((c) => CAP_LABEL[c] || c).join("/")}）`;
+      if (p.id === draft.protocol) opt.selected = true;
+      protoSelect.appendChild(opt);
+    });
+    protoSelect.addEventListener("change", () => { draft.protocol = protoSelect.value; });
+    protoWrap.appendChild(protoSelect);
+    body.appendChild(protoWrap);
+
+    body.appendChild(field("接口地址 base_url", draft.base_url, (v) => { draft.base_url = v; },
+      { placeholder: "https://ark.cn-beijing.volces.com" }));
+    body.appendChild(field("API Key（多个换行分隔）", (draft.api_keys || []).join("\n"),
+      (v) => { draft.api_keys = v.split("\n").map((s) => s.trim()).filter(Boolean); },
+      { textarea: true, rows: 2, placeholder: "sk-…  ｜  可灵填 AccessKey:SecretKey" }));
+
+    const modeWrap = el("label", "field");
+    const modeSpan = el("span");
+    modeSpan.textContent = "图生图走法（仅 OpenAI 兼容协议）";
+    modeWrap.appendChild(modeSpan);
+    const modeSelect = el("select");
+    [
+      ["edits", "/images/edits（multipart，OpenAI 标准）"],
+      ["generations", "/images/generations 带 image 字段（千问、部分中转）"],
+    ].forEach(([value, text]) => {
+      const opt = el("option");
+      opt.value = value;
+      opt.textContent = text;
+      if ((draft.edit_mode || "edits") === value) opt.selected = true;
+      modeSelect.appendChild(opt);
+    });
+    modeSelect.addEventListener("change", () => { draft.edit_mode = modeSelect.value; });
+    modeWrap.appendChild(modeSelect);
+    body.appendChild(modeWrap);
+
+    const adv = el("details", "adv");
+    const advSum = el("summary");
+    advSum.textContent = "高级：请求体附加字段（JSON）";
+    adv.appendChild(advSum);
+    adv.appendChild(jsonField(
+      "extra_body（会合并进每个请求，模板里可用 {prompt} {model} {size}）",
+      draft.extra_body,
+      (v) => { draft.extra_body = v; },
+      { rows: 4 }
+    ));
+    body.appendChild(adv);
+
+    const nums = el("div", "row");
+    nums.appendChild(field("并发", draft.concurrency, (v) => { draft.concurrency = parseInt(v, 10) || 1; }, { type: "number" }));
+    nums.appendChild(field("超时（秒）", draft.timeout, (v) => { draft.timeout = parseInt(v, 10) || 300; }, { type: "number" }));
+    body.appendChild(nums);
+
+    const nums2 = el("div", "row");
+    nums2.appendChild(field("冷却（秒）", draft.cooldown_seconds, (v) => { draft.cooldown_seconds = parseFloat(v) || 0; }, { type: "number" }));
+    nums2.appendChild(field("轮询超时（秒）", draft.poll_timeout, (v) => { draft.poll_timeout = parseInt(v, 10) || 900; }, { type: "number" }));
+    body.appendChild(nums2);
+
+    const nums3 = el("div", "row");
+    nums3.appendChild(field("队列上限", draft.max_queue, (v) => { draft.max_queue = parseInt(v, 10) || 8; }, { type: "number" }));
+    nums3.appendChild(field("失败重试", draft.max_retries, (v) => { draft.max_retries = parseInt(v, 10) || 0; }, { type: "number" }));
+    body.appendChild(nums3);
+
+    const modelsTitle = el("h3");
+    modelsTitle.textContent = "模型";
+    modelsTitle.style.margin = "16px 0 10px";
+    body.appendChild(modelsTitle);
+
+    const modelBox = el("div");
+    body.appendChild(modelBox);
+    const addModel = el("button", "ghost");
+    addModel.textContent = "+ 添加模型";
+    addModel.style.marginBottom = "10px";
+    addModel.addEventListener("click", () => {
+      draft.models.push(blankModel());
+      renderModels();
+    });
+    body.appendChild(addModel);
+
+    function renderModels() {
+      modelBox.innerHTML = "";
+      draft.models.forEach((model, index) => {
+        model.prompt_presets = model.prompt_presets || [];
+        const item = el("div", "model-item");
+        const row = el("div", "model-row");
+        const idInput = el("input");
+        idInput.placeholder = "model_id，如 doubao-seedream-4-0-250828";
+        idInput.value = model.model_id || "";
+        idInput.addEventListener("input", () => { model.model_id = idInput.value; });
+        row.appendChild(idInput);
+
+        const nameInput = el("input");
+        nameInput.placeholder = "显示名";
+        nameInput.value = model.display_name || "";
+        nameInput.addEventListener("input", () => { model.display_name = nameInput.value; });
+        row.appendChild(nameInput);
+
+        const caps = el("div", "caps");
+        CAPS.forEach((c) => {
+          const btn = el("button");
+          btn.textContent = CAP_LABEL[c];
+          if ((model.capabilities || []).includes(c)) btn.classList.add("on");
+          btn.addEventListener("click", () => {
+            const set = new Set(model.capabilities || []);
+            if (set.has(c)) set.delete(c); else set.add(c);
+            model.capabilities = CAPS.filter((x) => set.has(x));
+            if (!model.capabilities.length) model.capabilities = [c];
+            btn.classList.toggle("on");
+          });
+          caps.appendChild(btn);
+        });
+        row.appendChild(caps);
+
+        const presetBtn = el("button", "mini");
+        const isTagModel = /nai-diffusion|novelai|anima/i.test(
+          String(model.model_id || "")
+        );
+        presetBtn.textContent = isTagModel
+          ? `预设 ${model.prompt_presets.length}`
+          : "预设（不适用）";
+        if (!isTagModel) {
+          presetBtn.disabled = true;
+          presetBtn.title =
+            "只有 NovelAI / Anima 这类 tag 模型用画师串预设，其他模型交给 LLM 优化";
+        }
+        const panel = el("div", "preset-panel");
+        panel.hidden = true;
+        presetBtn.addEventListener("click", () => {
+          panel.hidden = !panel.hidden;
+          if (!panel.hidden) renderPresetsEditor(panel, model, presetBtn);
+        });
+        row.appendChild(presetBtn);
+
+        const del = el("button", "del-x");
+        del.textContent = "×";
+        del.addEventListener("click", () => {
+          draft.models.splice(index, 1);
+          renderModels();
+        });
+        row.appendChild(del);
+
+        item.appendChild(row);
+
+        const mAdv = el("details", "adv");
+        const mSum = el("summary");
+        mSum.textContent = "高级（JSON）：默认值 / 限制 / 参数";
+        mAdv.appendChild(mSum);
+        mAdv.appendChild(jsonField("defaults（默认尺寸、时长）", model.defaults,
+          (v) => { model.defaults = v; }, { rows: 2 }));
+        mAdv.appendChild(jsonField("limits（min_side / max_side / max_pixels / align / max_duration）", model.limits,
+          (v) => { model.limits = v; }, { rows: 2 }));
+        mAdv.appendChild(jsonField("params（协议私有参数，如 _result_path / image_field）", model.params,
+          (v) => { model.params = v; }, { rows: 3 }));
+        item.appendChild(mAdv);
+
+        item.appendChild(panel);
+        modelBox.appendChild(item);
+      });
+    }
+    renderModels();
+  }, async () => {
+    const badJson = document.querySelector('#modal-body [data-json-invalid="1"]');
+    if (badJson) {
+      banner("err", "有 JSON 填写不合法，先修正再保存");
+      badJson.scrollIntoView({ block: "center" });
+      return false;
+    }
+    if (!draft.name.trim()) { banner("err", "名称不能为空"); return false; }
+    draft.name = draft.name.trim();
+    draft.models = (draft.models || []).filter((m) => String(m.model_id || "").trim());
+    if (!draft.models.length) { banner("err", "至少填一个模型"); return false; }
+    const exists = state.providers.findIndex((p) => p.id === draft.id);
+    if (exists >= 0) state.providers[exists] = draft;
+    else state.providers.push(draft);
+    return await saveProviders();
+  });
+}
+
+function renderPresetsEditor(panel, model, counter) {
+  model.prompt_presets = model.prompt_presets || [];
+  panel.innerHTML = "";
+
+  const head = el("div", "preset-edit-head");
+  const title = el("span");
+  title.textContent = `提示词预设（${model.prompt_presets.length}）`;
+  head.appendChild(title);
+  const add = el("button", "mini");
+  add.textContent = "+ 添加";
+  add.addEventListener("click", () => {
+    model.prompt_presets.push({
+      id: "ps_" + Math.random().toString(16).slice(2, 8),
+      name: "新预设",
+      mode: "append",
+      prompt: "",
+      negative_prompt: "",
+      note: "",
+      params: {},
+    });
+    renderPresetsEditor(panel, model, counter);
+  });
+  head.appendChild(add);
+  panel.appendChild(head);
+
+  if (!model.prompt_presets.length) {
+    const empty = el("div", "hint");
+    empty.textContent = "还没有预设。添加后可在工作区一键套用。";
+    panel.appendChild(empty);
+  }
+
+  model.prompt_presets.forEach((preset, index) => {
+    const details = el("details", "preset-item");
+    const summary = el("summary");
+    const name = el("span", "pi-name");
+    name.textContent = preset.name || "未命名";
+    summary.appendChild(name);
+    const tag = el("span", "mode-tag");
+    tag.textContent = MODE_LABEL[preset.mode] || preset.mode || "追加";
+    if (model.default_preset_id === preset.id) {
+      tag.textContent += " · 默认";
+      tag.style.color = "var(--ok)";
+      tag.style.borderColor = "var(--ok)";
+    }
+    summary.appendChild(tag);
+    const del = el("button", "mini danger");
+    del.textContent = "删除";
+    del.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (model.default_preset_id === preset.id) model.default_preset_id = "";
+      model.prompt_presets.splice(index, 1);
+      renderPresetsEditor(panel, model, counter);
+    });
+    summary.appendChild(del);
+    details.appendChild(summary);
+
+    const body = el("div", "pi-body");
+
+    // 默认预设：用户不手动选时自动套用（画师串的「默认值」就是靠这个）
+    const defWrap = el("label", "chk");
+    const defRadio = el("input");
+    defRadio.type = "radio";
+    defRadio.name = `default-preset-${model.id || "m"}`;
+    defRadio.checked = model.default_preset_id === preset.id;
+    defRadio.addEventListener("change", () => {
+      if (!defRadio.checked) return;
+      model.default_preset_id = preset.id;
+      renderPresetsEditor(panel, model, counter);
+    });
+    defWrap.appendChild(defRadio);
+    defWrap.appendChild(document.createTextNode(" 设为默认（工作区打开时自动选中）"));
+    body.appendChild(defWrap);
+
+    body.appendChild(
+      field("名称", preset.name, (value) => { preset.name = value; }, { placeholder: "如 厚涂光影" })
+    );
+
+    const modeWrap = el("label", "field");
+    const modeSpan = el("span");
+    modeSpan.textContent = "套用方式";
+    modeWrap.appendChild(modeSpan);
+    const modeSelect = el("select");
+    [
+      ["append", "追加到用户描述之后（画师串、质量词）"],
+      ["wrap", "用结构模板包住用户描述（需含 {prompt}）"],
+      ["replace", "直接替换用户描述"],
+    ].forEach(([value, text]) => {
+      const opt = el("option");
+      opt.value = value;
+      opt.textContent = text;
+      if ((preset.mode || "append") === value) opt.selected = true;
+      modeSelect.appendChild(opt);
+    });
+    modeSelect.addEventListener("change", () => {
+      preset.mode = modeSelect.value;
+      tag.textContent = MODE_LABEL[preset.mode] || preset.mode;
+    });
+    modeWrap.appendChild(modeSelect);
+    body.appendChild(modeWrap);
+
+    body.appendChild(
+      field("提示词", preset.prompt, (value) => { preset.prompt = value; }, {
+        textarea: true,
+        rows: 3,
+        placeholder: preset.mode === "wrap" ? "画面结构…{prompt}…后缀词" : "wlop, guweiz, best quality",
+      })
+    );
+    body.appendChild(
+      field("负面词（可选）", preset.negative_prompt, (value) => { preset.negative_prompt = value; }, {
+        textarea: true,
+        rows: 2,
+        placeholder: "lowres, bad anatomy, bad hands…",
+      })
+    );
+    body.appendChild(
+      field("说明（可选，显示在提示里）", preset.note, (value) => { preset.note = value; })
+    );
+
+    details.appendChild(body);
+    panel.appendChild(details);
+  });
+
+  if (counter) counter.textContent = `预设 ${model.prompt_presets.length}`;
+}
+
+$("add-provider").addEventListener("click", () => {
+  openModal("选择平台", (body) => {
+    const hint = el("p", "hint");
+    hint.textContent = "选一个平台，会自动填好协议、地址和常用模型；填上 API Key 即可。";
+    hint.style.marginTop = "0";
+    body.appendChild(hint);
+    const grid = el("div", "platform-pick");
+    (state.platforms || []).forEach((platform) => {
+      const btn = el("button");
+      btn.innerHTML = `<strong>${escapeHtml(platform.label)}</strong><small>${escapeHtml(platform.hint || "")}</small>`;
+      btn.addEventListener("click", () => {
+        const presets = platform.providers || [];
+        presets.forEach((preset) => {
+          state.providers.push({
+            id: newProviderId(),
+            name: preset.name,
+            protocol: preset.protocol,
+            base_url: preset.base_url || "",
+            api_keys: [],
+            headers: {},
+            proxy: "",
+            timeout: preset.timeout || 300,
+            max_retries: 1,
+            concurrency: preset.concurrency || 1,
+            cooldown_seconds: preset.cooldown_seconds || 0,
+            max_queue: 8,
+            poll_timeout: preset.poll_timeout || 900,
+            edit_mode: "edits",
+            extra_body: preset.extra_body || {},
+            enabled: true,
+            models: (preset.models || []).map((m) => ({
+              id: newModelId(),
+              model_id: m.model_id,
+              display_name: m.display_name || m.model_id,
+              capabilities: m.capabilities || ["t2i"],
+              aliases: m.aliases || [],
+              defaults: m.defaults || {},
+              limits: m.limits || {},
+              params: m.params || {},
+              enabled: true,
+            })),
+          });
+        });
+        closeModal(true);
+        renderProviders();
+        banner("warn", `已添加 ${presets.length} 个供应商，记得填 API Key 后保存`);
+        const last = state.providers[state.providers.length - 1];
+        if (last) openProviderModal(last);
+      });
+      grid.appendChild(btn);
+    });
+    body.appendChild(grid);
+  }, async () => true);
+});
+
+/* ---------------- 配置页 ---------------- */
+
+let catalogDraft = [];
+let catalogOriginal = new Set();
+
+function listPhysical() {
+  const out = [];
+  (state.providers || []).forEach((p) => {
+    (p.models || []).forEach((m) => {
+      const modelId = m.model_id || m.id || "";
+      out.push({
+        providerId: p.id,
+        modelId,
+        providerName: p.name || p.id,
+        modelLabel: m.display_name || modelId,
+        protocol: p.protocol || "",
+      });
+    });
+  });
+  return out;
+}
+
+/* 预置模型 + 已有配置合并成草稿：只决定「绑哪几家 + 顺序」，不新建模型 */
+function buildCatalogDraft() {
+  const settings = state.settings || {};
+  const existing = JSON.parse(JSON.stringify(settings.catalog || []));
+  catalogOriginal = new Set(existing.map((item) => item.id));
+  const draft = existing.map((item) => ({ ...item, from_preset: false }));
+
+  (state.catalog_presets || []).forEach((preset) => {
+    const presetModels = new Set(
+      (preset.chain || []).map((b) => b.model_id).filter(Boolean)
+    );
+    // 迁移生成的 catalog id 是 slug(model_id)，和预置 id 不一定一致，
+    // 所以除了 id 还要按 model_id 命中一次，避免出现重复条目
+    let hit = draft.find((item) => item.id === preset.id);
+    if (!hit) {
+      hit = draft.find((item) =>
+        (item.chain || []).some((b) => presetModels.has(b.model_id))
+      );
+    }
+    if (hit) {
+      hit.from_preset = true;
+      hit.presetId = preset.id;
+      hit.note = preset.note || hit.note || "";
+      if (!hit.name) hit.name = preset.name;
+      if (!hit.family) hit.family = preset.family || "";
+      hit.capabilities = [
+        ...new Set([...(hit.capabilities || []), ...(preset.capabilities || [])]),
+      ];
+      (preset.chain || []).forEach((binding) => {
+        const dup = (hit.chain || []).some(
+          (b) =>
+            b.provider_id === binding.provider_id && b.model_id === binding.model_id
+        );
+        if (!dup) {
+          if (!hit.chain) hit.chain = [];
+          hit.chain.push({ ...binding });
+        }
+      });
+      return;
+    }
+    draft.push({
+      id: preset.id,
+      presetId: preset.id,
+      name: preset.name,
+      family: preset.family || "",
+      capabilities: [...(preset.capabilities || [])],
+      chain: (preset.chain || []).map((b) => ({ ...b })),
+      optimizer_prompt: "",
+      enabled: true,
+      note: preset.note || "",
+      from_preset: true,
+    });
+  });
+
+  return draft;
+}
+
+/* 只落库「有绑定的」和「原来就有的」：没匹配上的预置不写进配置 */
+function collectCatalog() {
+  return catalogDraft
+    .filter((item) => (item.chain || []).length > 0 || catalogOriginal.has(item.id))
+    .map((item) => ({
+      id: item.id,
+      name: item.name || item.id,
+      family: item.family || "",
+      capabilities: item.capabilities || ["t2i"],
+      chain: item.chain || [],
+      optimizer_prompt: item.optimizer_prompt || "",
+      enabled: item.enabled !== false,
+    }));
+}
+
+function renderCatalogItem(entry, physical) {
+  const card = el("div", "cat-item");
+  if (entry.enabled === false) card.classList.add("is-off");
+
+  const head = el("div", "cat-head");
+
+  const enabled = el("input");
+  enabled.type = "checkbox";
+  enabled.checked = entry.enabled !== false;
+  enabled.title = "启用这个模型";
+  enabled.addEventListener("change", () => {
+    entry.enabled = enabled.checked;
+    card.classList.toggle("is-off", !enabled.checked);
+  });
+  head.appendChild(enabled);
+
+  const title = el("span", "cat-title");
+  title.textContent = entry.name || entry.id;
+  head.appendChild(title);
+
+  (entry.capabilities || []).forEach((capability) => {
+    const tag = el("span", "mode-tag");
+    tag.textContent = CAP_LABEL[capability] || capability;
+    head.appendChild(tag);
+  });
+
+  if (entry.family) {
+    const fam = el("span", "mode-tag");
+    fam.textContent = entry.family;
+    head.appendChild(fam);
+  }
+
+  const spacer = el("span");
+  spacer.style.marginLeft = "auto";
+  head.appendChild(spacer);
+
+  const chain = entry.chain || (entry.chain = []);
+  const count = el("span", "hint");
+  count.textContent = chain.length ? `${chain.length} 家供应商` : "未绑定";
+  if (!chain.length) count.style.color = "var(--warn)";
+  head.appendChild(count);
+
+  card.appendChild(head);
+
+  if (entry.note) {
+    const note = el("p", "cat-note");
+    note.textContent = entry.note;
+    card.appendChild(note);
+  }
+
+  const box = el("div", "cat-bindings");
+  if (!chain.length) {
+    const empty = el("div", "hint");
+    empty.textContent = "没有匹配到供应商，可从下面手动指定。";
+    box.appendChild(empty);
+  }
+
+  chain.forEach((binding, bi) => {
+    const row = el("div", "cat-binding");
+    const idx = el("span", "idx");
+    idx.textContent = String(bi + 1);
+    row.appendChild(idx);
+
+    const hit = physical.find(
+      (item) =>
+        item.providerId === binding.provider_id && item.modelId === binding.model_id
+    );
+    const who = el("span", "who");
+    who.textContent = hit
+      ? `${hit.providerName} / ${hit.modelLabel}`
+      : `${binding.provider_id} / ${binding.model_id}（已不存在）`;
+    if (!hit) who.classList.add("bad");
+    row.appendChild(who);
+
+    const mk = (text, tip, handler, disabled) => {
+      const button = el("button", "mini");
+      button.textContent = text;
+      button.title = tip;
+      if (disabled) button.disabled = true;
+      button.addEventListener("click", handler);
+      return button;
+    };
+
+    row.appendChild(
+      mk(
+        "↑",
+        "上移（更优先）",
+        () => {
+          [chain[bi - 1], chain[bi]] = [chain[bi], chain[bi - 1]];
+          renderCatalogEditor();
+        },
+        bi === 0
+      )
+    );
+    row.appendChild(
+      mk(
+        "↓",
+        "下移",
+        () => {
+          [chain[bi + 1], chain[bi]] = [chain[bi], chain[bi + 1]];
+          renderCatalogEditor();
+        },
+        bi === chain.length - 1
+      )
+    );
+    row.appendChild(
+      mk("×", "移除这条绑定", () => {
+        chain.splice(bi, 1);
+        renderCatalogEditor();
+      })
+    );
+    box.appendChild(row);
+  });
+  card.appendChild(box);
+
+  const addRow = el("div", "cat-add");
+  const select = el("select");
+  const blank = el("option");
+  blank.value = "";
+  blank.textContent = "选择一家供应商模型…";
+  select.appendChild(blank);
+  physical.forEach((item, oi) => {
+    const opt = el("option");
+    opt.value = String(oi);
+    opt.textContent = `${item.providerName} / ${item.modelLabel}`;
+    select.appendChild(opt);
+  });
+  addRow.appendChild(select);
+
+  const addOne = el("button", "mini");
+  addOne.textContent = "添加";
+  addOne.addEventListener("click", () => {
+    const picked = physical[Number(select.value)];
+    if (!picked) return;
+    if (
+      chain.some(
+        (b) => b.provider_id === picked.providerId && b.model_id === picked.modelId
+      )
+    ) {
+      return;
+    }
+    chain.push({ provider_id: picked.providerId, model_id: picked.modelId });
+    renderCatalogEditor();
+  });
+  addRow.appendChild(addOne);
+  card.appendChild(addRow);
+
+  const details = el("details", "cat-details");
+  const summary = el("summary");
+  summary.textContent = "模型专属优化提示词";
+  details.appendChild(summary);
+  const textarea = el("textarea");
+  textarea.rows = 6;
+  textarea.placeholder =
+    "留空则使用内置规则" +
+    (entry.family ? `（${entry.family}）` : "（按模型名自动匹配）");
+  textarea.value = entry.optimizer_prompt || "";
+  textarea.addEventListener("change", () => {
+    entry.optimizer_prompt = textarea.value;
+  });
+  details.appendChild(textarea);
+  card.appendChild(details);
+
+  return card;
+}
+
+function renderCatalogEditor() {
+  const box = $("catalog-box");
+  if (!box) return;
+  box.innerHTML = "";
+
+  const physical = listPhysical();
+
+  const head = el("div");
+  head.style.cssText =
+    "display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px";
+  const hint = el("span", "hint");
+  hint.textContent =
+    "清单按内置预置 + 你已配的供应商自动生成，只需调整每家供应商的顺序；第一位是默认。";
+  head.appendChild(hint);
+
+  const reset = el("button", "mini");
+  reset.textContent = "按现有供应商重新匹配";
+  reset.title = "把内置预置里能匹配到的供应商模型并回来，不会删掉你手动加的绑定";
+  reset.addEventListener("click", () => {
+    catalogDraft = buildCatalogDraft();
+    renderCatalogEditor();
+    $("settings-hint").textContent = "已按现有供应商重新匹配";
+  });
+  head.appendChild(reset);
+  box.appendChild(head);
+
+  const ready = catalogDraft.filter((item) => (item.chain || []).length > 0);
+  const idle = catalogDraft.filter((item) => !(item.chain || []).length);
+
+  const list = el("div", "cat-list");
+  ready.forEach((entry) => list.appendChild(renderCatalogItem(entry, physical)));
+  if (!ready.length) {
+    const empty = el("div", "hint");
+    empty.textContent = "还没有匹配到任何模型，先去「供应商」页添加一个。";
+    list.appendChild(empty);
+  }
+  box.appendChild(list);
+
+  if (idle.length) {
+    const fold = el("details", "cat-details");
+    fold.style.marginTop = "12px";
+    const summary = el("summary");
+    summary.textContent = `未匹配到供应商的预置模型（${idle.length}）`;
+    fold.appendChild(summary);
+    const sub = el("div", "cat-list");
+    sub.style.marginTop = "10px";
+    idle.forEach((entry) => sub.appendChild(renderCatalogItem(entry, physical)));
+    fold.appendChild(sub);
+    box.appendChild(fold);
+  }
+}
+
+let llmChain = [];
+
+function renderLlmChain() {
+  const box = $("opt-llm-chain");
+  if (!box) return;
+  box.innerHTML = "";
+  if (!llmChain.length) {
+    const hint = el("div", "hint");
+    hint.textContent = "未指定，跟随 AstrBot 当前会话的默认模型";
+    box.appendChild(hint);
+    return;
+  }
+  const labelOf = (id) => {
+    const meta = (state.llm_providers || []).find((p) => p.id === id);
+    return meta ? meta.label || meta.id : `${id}（已不存在）`;
+  };
+  llmChain.forEach((id, index) => {
+    const row = el("div", "fam-row");
+    const order = el("span", "fam-name");
+    order.textContent = `${index + 1}. `;
+    row.appendChild(order);
+
+    const name = el("span");
+    name.textContent = labelOf(id);
+    row.appendChild(name);
+
+    const spacer = el("span");
+    spacer.style.marginLeft = "auto";
+    row.appendChild(spacer);
+
+    if (index > 0) {
+      const up = el("button", "mini");
+      up.textContent = "↑";
+      up.title = "提前";
+      up.addEventListener("click", () => {
+        [llmChain[index - 1], llmChain[index]] = [llmChain[index], llmChain[index - 1]];
+        renderLlmChain();
+      });
+      row.appendChild(up);
+    }
+    if (index < llmChain.length - 1) {
+      const down = el("button", "mini");
+      down.textContent = "↓";
+      down.title = "延后";
+      down.addEventListener("click", () => {
+        [llmChain[index + 1], llmChain[index]] = [llmChain[index], llmChain[index + 1]];
+        renderLlmChain();
+      });
+      row.appendChild(down);
+    }
+    const del = el("button", "mini");
+    del.textContent = "×";
+    del.title = "移除";
+    del.addEventListener("click", () => {
+      llmChain.splice(index, 1);
+      renderSettings();
+    });
+    row.appendChild(del);
+    box.appendChild(row);
+  });
+}
+
+function renderSettings() {
+  if (!state) return;
+  const settings = state.settings || {};
+  const defaults = settings.defaults || {};
+  // 模型链在草稿里改，点保存才落盘，避免误操作直接生效
+  catalogDraft = buildCatalogDraft();
+
+  const defaultsBox = $("defaults-box");
+  defaultsBox.innerHTML = "";
+  CAPS.forEach((capability) => {
+    const wrap = el("label", "field");
+    const span = el("span");
+    span.textContent = CAP_LABEL[capability];
+    wrap.appendChild(span);
+    const select = el("select");
+    const blank = el("option");
+    blank.value = "";
+    blank.textContent = "未设置";
+    select.appendChild(blank);
+    (state.models || []).filter((m) => (m.capabilities || []).includes(capability)).forEach((m) => {
+      const opt = el("option");
+      opt.value = m.key;
+      opt.textContent =
+        m.ready === false ? `${m.name || m.label}（无可用供应商）` : m.name || m.label;
+      if (m.key === defaults[capability]) opt.selected = true;
+      select.appendChild(opt);
+    });
+    select.dataset.defaultCap = capability;
+    wrap.appendChild(select);
+    defaultsBox.appendChild(wrap);
+  });
+
+  renderCatalogEditor();
+
+  const optBox = $("optimizer-box");
+  optBox.innerHTML = "";
+  const optimizer = settings.optimizer || {};
+  const optEnabled = el("label", "chk");
+  const optCheck = el("input");
+  optCheck.type = "checkbox";
+  optCheck.checked = optimizer.enabled !== false;
+  optCheck.id = "opt-enabled";
+  optEnabled.appendChild(optCheck);
+  optEnabled.appendChild(document.createTextNode(" 自动用 LLM 优化提示词"));
+  optBox.appendChild(optEnabled);
+
+  const errWrap = el("label", "field");
+  errWrap.style.marginTop = "10px";
+  const errSpan = el("span");
+  errSpan.textContent = "优化失败时";
+  errWrap.appendChild(errSpan);
+  const errSelect = el("select");
+  errSelect.id = "opt-on-error";
+  [["use_original", "直接用原提示词"], ["fail", "让任务失败"]].forEach(([value, text]) => {
+    const opt = el("option");
+    opt.value = value;
+    opt.textContent = text;
+    if ((optimizer.on_error || "use_original") === value) opt.selected = true;
+    errSelect.appendChild(opt);
+  });
+  errWrap.appendChild(errSelect);
+  optBox.appendChild(errWrap);
+
+  // ---- 优化 LLM：有序回退路径 ----
+  llmChain = [
+    ...(optimizer.llm_providers ||
+      (optimizer.llm_provider_id ? [optimizer.llm_provider_id] : [])),
+  ];
+
+  const llmWrap = el("div", "field");
+  llmWrap.style.marginTop = "10px";
+  const llmSpan = el("span");
+  llmSpan.textContent = "优化用的 LLM 供应商（按顺序回退）";
+  llmWrap.appendChild(llmSpan);
+
+  const chainBox = el("div");
+  chainBox.id = "opt-llm-chain";
+  llmWrap.appendChild(chainBox);
+
+  const addRow = el("div");
+  addRow.style.cssText = "display:flex;gap:8px;margin-top:6px";
+  const addSelect = el("select");
+  addSelect.id = "opt-llm-add";
+  const pickOpt = el("option");
+  pickOpt.value = "";
+  pickOpt.textContent = "选择要追加的供应商…";
+  addSelect.appendChild(pickOpt);
+  (state.llm_providers || []).forEach((item) => {
+    if (llmChain.includes(item.id)) return;
+    const opt = el("option");
+    opt.value = item.id;
+    opt.textContent = item.label || item.id;
+    addSelect.appendChild(opt);
+  });
+  addRow.appendChild(addSelect);
+  const addBtn = el("button", "mini");
+  addBtn.textContent = "追加";
+  addBtn.addEventListener("click", () => {
+    const value = addSelect.value;
+    if (!value) return;
+    llmChain.push(value);
+    renderSettings();
+  });
+  addRow.appendChild(addBtn);
+  llmWrap.appendChild(addRow);
+
+  const llmHint = el("div", "hint");
+  llmHint.textContent = (state.llm_providers || []).length
+    ? "第一个是首选，失败或超时会依次往后换；超时沿用 AstrBot 供应商自己的 timeout。留空则跟会话默认。"
+    : "没读到可用 LLM 供应商，请先在 AstrBot「服务提供商」里配置。";
+  llmWrap.appendChild(llmHint);
+  optBox.appendChild(llmWrap);
+  renderLlmChain();
+
+  // ---- 优化规则：按模型家族内置，可改文案 ----
+  const famHead = el("div", "preset-edit-head");
+  famHead.style.marginTop = "14px";
+  const famTitle = el("span");
+  famTitle.textContent = "优化规则（按模型自动匹配）";
+  famHead.appendChild(famTitle);
+  optBox.appendChild(famHead);
+
+  const famHint = el("div", "hint");
+  famHint.textContent =
+    "每条规则就是交给 LLM 的 system prompt。生成时按所选模型自动挑一条；改过的覆盖内置值。";
+  optBox.appendChild(famHint);
+
+  const famList = el("div", "fam-list");
+  (state.optimizer_families || []).forEach((fam) => {
+    if (optimizerDrafts[fam.key] === undefined) {
+      optimizerDrafts[fam.key] = fam.system_prompt || "";
+    }
+    const row = el("div", "fam-row");
+    const name = el("span", "fam-name");
+    name.textContent = fam.label;
+    row.appendChild(name);
+
+    const styleTag = el("span", "mode-tag");
+    styleTag.textContent = fam.style === "tag" ? "tag" : "text";
+    row.appendChild(styleTag);
+
+    const edited =
+      String(optimizerDrafts[fam.key] || "").trim() !==
+      String(fam.builtin_prompt || "").trim();
+    if (edited) {
+      const tag = el("span", "mode-tag");
+      tag.textContent = "已改";
+      tag.style.color = "var(--ok)";
+      tag.style.borderColor = "var(--ok)";
+      row.appendChild(tag);
+    }
+
+    const spacer = el("span");
+    spacer.style.marginLeft = "auto";
+    row.appendChild(spacer);
+
+    const edit = el("button", "mini");
+    edit.textContent = "编辑";
+    edit.addEventListener("click", () => editFamilyPrompt(fam));
+    row.appendChild(edit);
+    famList.appendChild(row);
+  });
+  optBox.appendChild(famList);
+
+  const limits = settings.limits || {};
+  const limitsBox = $("limits-box");
+  limitsBox.innerHTML = "";
+  const limitDefs = [
+    ["max_side", "单边上限（px）"],
+    ["max_pixels", "总像素上限"],
+    ["min_side", "单边下限（px）"],
+  ];
+  limitDefs.forEach(([key, label]) => {
+    const wrap = el("label", "field");
+    const span = el("span");
+    span.textContent = label;
+    wrap.appendChild(span);
+    const input = el("input");
+    input.type = "number";
+    input.value = limits[key] || "";
+    input.dataset.limitKey = key;
+    wrap.appendChild(input);
+    limitsBox.appendChild(wrap);
+  });
+
+  const queue = settings.queue || {};
+  const queueBox = $("queue-box");
+  queueBox.innerHTML = "";
+  [["notify_on_failure", "失败时通知"]].forEach(([key, label]) => {
+    const wrap = el("label", "chk");
+    wrap.style.display = "flex";
+    wrap.style.marginBottom = "8px";
+    const input = el("input");
+    input.type = "checkbox";
+    input.checked = queue[key] !== false;
+    input.dataset.queueKey = key;
+    wrap.appendChild(input);
+    wrap.appendChild(document.createTextNode(" " + label));
+    queueBox.appendChild(wrap);
+  });
+  const queueHint = el("div", "hint");
+  queueHint.style.marginTop = "4px";
+  queueHint.textContent = "排队、并发与冷却按供应商配置，在「供应商 → 编辑」里调整。";
+  queueBox.appendChild(queueHint);
+}
+
+/* 编辑某一类模型的优化 system prompt */
+function editFamilyPrompt(fam) {
+  openModal(`优化规则 · ${fam.label}`, (body) => {
+    const note = el("p", "hint");
+    note.style.marginTop = "0";
+    note.textContent = fam.note || "";
+    body.appendChild(note);
+
+    const wrap = el("label", "field");
+    const label = el("span");
+    label.textContent = "System prompt";
+    wrap.appendChild(label);
+    const ta = el("textarea");
+    ta.id = "family-prompt";
+    ta.rows = 14;
+    ta.value =
+      optimizerDrafts[fam.key] !== undefined
+        ? optimizerDrafts[fam.key]
+        : fam.system_prompt || "";
+    ta.style.fontFamily = "ui-monospace, Menlo, Consolas, monospace";
+    ta.style.fontSize = "12px";
+    ta.style.lineHeight = "1.6";
+    wrap.appendChild(ta);
+    body.appendChild(wrap);
+
+    const row = el("div");
+    row.style.display = "flex";
+    row.style.gap = "8px";
+    const reset = el("button", "ghost");
+    reset.textContent = "恢复默认";
+    reset.addEventListener("click", () => {
+      ta.value = fam.builtin_prompt || "";
+    });
+    row.appendChild(reset);
+    body.appendChild(row);
+  }, async () => {
+    const ta = $("family-prompt");
+    optimizerDrafts[fam.key] = ta ? ta.value : "";
+    renderSettings();
+    banner("ok", "已更新，记得点「保存配置」");
+    return true;
+  });
+}
+
+/* 把草稿整理成 settings.optimizer.profiles：与内置一致的不落库，避免存一堆冗余副本 */
+function buildOptimizerProfiles() {
+  const keep = ((state.settings || {}).optimizer || {}).profiles || [];
+  const byFamily = new Map();
+  const loose = [];
+  keep.forEach((item) => {
+    const key = String(item.family || "");
+    if (key) byFamily.set(key, { ...item });
+    else loose.push({ ...item });
+  });
+
+  (state.optimizer_families || []).forEach((fam) => {
+    const draft = optimizerDrafts[fam.key];
+    const text = String(draft !== undefined ? draft : fam.system_prompt || "").trim();
+    const builtin = String(fam.builtin_prompt || "").trim();
+    if (!text) return;
+    if (text === builtin) {
+      // 只有用户明确把文案改回内置时才移除覆盖；
+      // 家族列表没加载到时（draft 为 undefined）原样保留，避免静默清空
+      if (draft !== undefined) byFamily.delete(fam.key);
+      return;
+    }
+    byFamily.set(fam.key, {
+      id: `op_${fam.key}`,
+      name: fam.label,
+      family: fam.key,
+      style: fam.style,
+      system_prompt: text,
+      timeout: 25,
+      llm_provider_id: "",
+    });
+  });
+
+  return [...loose, ...byFamily.values()];
+}
+
+$("save-settings").addEventListener("click", async () => {
+  const settings = JSON.parse(JSON.stringify(state.settings || {}));
+  settings.defaults = settings.defaults || {};
+  document.querySelectorAll("[data-default-cap]").forEach((select) => {
+    settings.defaults[select.dataset.defaultCap] = select.value;
+  });
+  settings.optimizer = settings.optimizer || {};
+  const optCheck = $("opt-enabled");
+  if (optCheck) settings.optimizer.enabled = optCheck.checked;
+  const errSelect = $("opt-on-error");
+  if (errSelect) settings.optimizer.on_error = errSelect.value;
+  settings.optimizer.llm_providers = [...llmChain];
+  settings.optimizer.llm_provider_id = llmChain[0] || "";
+  settings.optimizer.profiles = buildOptimizerProfiles();
+  settings.catalog = collectCatalog();
+  settings.limits = settings.limits || {};
+  document.querySelectorAll("[data-limit-key]").forEach((input) => {
+    const value = parseInt(input.value, 10);
+    if (!Number.isNaN(value) && value > 0) settings.limits[input.dataset.limitKey] = value;
+  });
+  settings.queue = settings.queue || {};
+  document.querySelectorAll("[data-queue-key]").forEach((input) => {
+    settings.queue[input.dataset.queueKey] = input.checked;
+  });
+
+  const res = await apiPost("settings", { settings });
+  if (res.status !== "ok") { banner("err", res.message || "保存失败"); return; }
+  state.settings = res.settings || (res.data && res.data.settings) || settings;
+  $("settings-hint").textContent = "已保存";
+  banner("ok", "配置已保存");
+  renderAll();
+});
+
+/* ---------------- 画廊 ---------------- */
+
+let galleryItems = [];
+
+async function loadGallery() {
+  const box = $("gallery");
+  box.innerHTML = '<div class="loading">加载中…</div>';
+  const kind = $("g-kind").value;
+  const query = $("g-search").value.trim();
+  let res;
+  try {
+    res = await apiGet("gallery", {
+      limit: 60,
+      offset: 0,
+      kind,
+      q: query,
+      fav: $("g-fav").checked ? "1" : "",
+    });
+  } catch (err) {
+    box.innerHTML = `<div class="loading">读取失败：${escapeHtml(err && err.message ? err.message : err)}</div>`;
+    return;
+  }
+  if (res.status !== "ok") {
+    box.innerHTML = `<div class="loading">${escapeHtml(res.message || "读取失败")}</div>`;
+    return;
+  }
+  const payload = res.items ? res : (res.data || {});
+  galleryItems = payload.items || [];
+  $("g-count").textContent = `共 ${payload.total || galleryItems.length} 个`;
+  box.innerHTML = "";
+  if (!galleryItems.length) {
+    box.innerHTML = '<div class="loading">还没有作品</div>';
+    return;
+  }
+  galleryItems.forEach((asset) => {
+    const card = el("div", "thumb");
+    const img = el("img");
+    img.alt = asset.prompt || "";
+    card.appendChild(img);
+    if (asset.kind === "image") fillMedia(img, asset.id, true);
+    else img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="#8882"/><text x="100" y="105" text-anchor="middle" font-size="14" fill="#888">视频</text></svg>'
+    );
+    const cap = el("div", "cap");
+    cap.textContent = asset.prompt || asset.model_id || "";
+    card.appendChild(cap);
+    const fav = el("button", `fav${asset.favorite ? " on" : ""}`);
+    fav.textContent = "★";
+    fav.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await apiPost("asset", { action: "favorite", id: asset.id, value: !asset.favorite });
+      asset.favorite = !asset.favorite;
+      fav.classList.toggle("on", !!asset.favorite);
+    });
+    card.appendChild(fav);
+    card.addEventListener("click", () => openViewer(asset));
+    box.appendChild(card);
+  });
+}
+
+$("g-reload").addEventListener("click", loadGallery);
+$("g-search").addEventListener("keydown", (e) => { if (e.key === "Enter") loadGallery(); });
+$("g-kind").addEventListener("change", loadGallery);
+$("g-fav").addEventListener("change", loadGallery);
+
+async function openViewer(asset) {
+  viewingAsset = asset;
+  $("view-body").innerHTML = "";
+  const media = asset.kind === "video" ? el("video") : el("img", "big-view");
+  if (asset.kind === "video") { media.controls = true; media.className = "big-view"; }
+  media.alt = asset.prompt || "";
+  $("view-body").appendChild(media);
+  fillMedia(media, asset.id, false);
+
+  const meta = el("div", "meta");
+  meta.textContent = [
+    `提示词：${asset.prompt || ""}`,
+    asset.optimized_prompt && asset.optimized_prompt !== asset.prompt ? `优化后：${asset.optimized_prompt}` : "",
+    `模型：${asset.provider_name || ""} / ${asset.model_id || ""}`,
+    `尺寸：${asset.width || "?"}x${asset.height || "?"} · ${formatBytes(asset.bytes)}`,
+    asset.seed ? `种子：${asset.seed}` : "",
+    asset.duration ? `时长：${asset.duration}s` : "",
+    `时间：${asset.created ? new Date(asset.created * 1000).toLocaleString() : ""}`,
+  ].filter(Boolean).join("\n");
+  $("view-body").appendChild(meta);
+  $("view-fav").textContent = asset.favorite ? "取消收藏" : "收藏";
+  $("view-mask").classList.add("show");
+}
+
+$("view-close").addEventListener("click", () => $("view-mask").classList.remove("show"));
+$("view-mask").addEventListener("click", (e) => {
+  if (e.target === $("view-mask")) $("view-mask").classList.remove("show");
+});
+
+$("view-fav").addEventListener("click", async () => {
+  if (!viewingAsset) return;
+  await apiPost("asset", { action: "favorite", id: viewingAsset.id, value: !viewingAsset.favorite });
+  $("view-fav").textContent = viewingAsset.favorite ? "收藏" : "取消收藏";
+  viewingAsset.favorite = !viewingAsset.favorite;
+  loadGallery();
+});
+
+$("view-del").addEventListener("click", async () => {
+  if (!viewingAsset) return;
+  if (!(await confirmDialog("确定删除这个作品？文件会一起删掉。", "删除作品"))) return;
+  await apiPost("asset", { action: "delete", id: viewingAsset.id });
+  $("view-mask").classList.remove("show");
+  loadGallery();
+});
+
+$("view-reuse").addEventListener("click", () => {
+  if (!viewingAsset) return;
+  const asset = viewingAsset;
+  $("view-mask").classList.remove("show");
+  document.querySelector('.tabs button[data-tab="workspace"]').click();
+  const targetCap = asset.capability || "t2i";
+  const btn = document.querySelector(`#cap-seg button[data-cap="${targetCap}"]`);
+  if (btn) btn.click();
+  $("prompt").value = asset.prompt || "";
+  const params = asset.params || {};
+  if (params.size) $("size").value = params.size;
+  if (params.duration) $("duration").value = params.duration;
+  renderParams();
+  Object.keys(params).forEach((key) => {
+    const input = document.querySelector(`#param-box [data-param-key="${key}"]`);
+    if (!input || key === "size") return;
+    if (typeof params[key] === "boolean") input.value = params[key] ? "1" : "0";
+    else input.value = params[key];
+  });
+  // 逻辑模型可能绑了多家供应商，按 chain 里的任一条匹配上都算
+  const match = (state.models || []).find((m) =>
+    (m.chain || []).some(
+      (b) =>
+        b.provider_id === asset.provider_id &&
+        (b.model_id === asset.model_id || b.model_id === asset.model_key)
+    )
+  );
+  if (match) {
+    selectedModel = match.key;
+    $("model-select").value = match.key;
+  }
+  banner("ok", "参数已填回工作区");
+});
+
+/* ---------------- 启动 ---------------- */
+
+(async function boot() {
+  await loadState();
+  try {
+    activeJobId = localStorage.getItem("miaobi.activeJob") || "";
+  } catch (e) {
+    activeJobId = "";
+  }
+  await loadJobs();
+  const theme = window.parent && window.parent.document
+    ? window.parent.document.documentElement.getAttribute("data-theme")
+    : null;
+  if (theme === "dark") document.documentElement.setAttribute("data-theme", "dark");
+})();
+</script>
+</body>
+</html>

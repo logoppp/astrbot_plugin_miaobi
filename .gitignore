@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.venv/
+venv/
+
+# 运行时数据（正常情况下不在插件目录内，防止误提交）
+config/
+plugin_data/
+data/
+assets/
+queue/
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.log
+
+# 备份 / 临时 / 损坏文件
+*.bak
+*.bak_*
+*.broken
+*.broken_*
+*.before_restore_*
+*.orig
+*.rej
+*.tmp
+
+# 编辑器与系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
