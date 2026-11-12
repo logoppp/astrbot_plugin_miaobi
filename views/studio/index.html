@@ -2634,11 +2634,35 @@ function renderLlmChain() {
     del.title = "移除";
     del.addEventListener("click", () => {
       llmChain.splice(index, 1);
-      renderSettings();
+      // 同追加：局部重绘，避免 renderSettings() 把 llmChain 重置回已保存值
+      renderLlmChain();
+      fillLlmAddOptions();
     });
     row.appendChild(del);
     box.appendChild(row);
   });
+}
+
+function fillLlmAddOptions() {
+  const sel = $("opt-llm-add");
+  if (!sel) return;
+  const keep = sel.value;
+  sel.innerHTML = "";
+  const pick = el("option");
+  pick.value = "";
+  pick.textContent = "选择要追加的供应商…";
+  sel.appendChild(pick);
+  (state.llm_providers || []).forEach((item) => {
+    if (llmChain.includes(item.id)) return;
+    const opt = el("option");
+    opt.value = item.id;
+    opt.textContent = item.label || item.id;
+    sel.appendChild(opt);
+  });
+  // 追加失败或选项重排后，尽量保住用户原来的选择
+  if (keep && Array.from(sel.options).some((o) => o.value === keep)) {
+    sel.value = keep;
+  }
 }
 
 function renderSettings() {
@@ -2724,25 +2748,18 @@ function renderSettings() {
   addRow.style.cssText = "display:flex;gap:8px;margin-top:6px";
   const addSelect = el("select");
   addSelect.id = "opt-llm-add";
-  const pickOpt = el("option");
-  pickOpt.value = "";
-  pickOpt.textContent = "选择要追加的供应商…";
-  addSelect.appendChild(pickOpt);
-  (state.llm_providers || []).forEach((item) => {
-    if (llmChain.includes(item.id)) return;
-    const opt = el("option");
-    opt.value = item.id;
-    opt.textContent = item.label || item.id;
-    addSelect.appendChild(opt);
-  });
   addRow.appendChild(addSelect);
   const addBtn = el("button", "mini");
   addBtn.textContent = "追加";
   addBtn.addEventListener("click", () => {
-    const value = addSelect.value;
-    if (!value) return;
+    const sel = $("opt-llm-add");
+    const value = sel ? sel.value : "";
+    if (!value || llmChain.includes(value)) return;
     llmChain.push(value);
-    renderSettings();
+    // 只重绘链和下拉：调 renderSettings() 会把 llmChain 重置回已保存的值，
+    // 刚追加的供应商会当场消失 —— 表现就是「点追加没反应」。
+    renderLlmChain();
+    fillLlmAddOptions();
   });
   addRow.appendChild(addBtn);
   llmWrap.appendChild(addRow);
@@ -2754,6 +2771,7 @@ function renderSettings() {
   llmWrap.appendChild(llmHint);
   optBox.appendChild(llmWrap);
   renderLlmChain();
+  fillLlmAddOptions();
 
   // ---- 优化规则：按模型家族内置，可改文案 ----
   const famHead = el("div", "preset-edit-head");
